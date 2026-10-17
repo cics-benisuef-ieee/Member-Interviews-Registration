@@ -57,8 +57,9 @@ async function ensureTracks() {
     console.log(`+ track: ${name}`);
   }
 
-  const { data: tracks, error } = await db.from('tracks').select('id, name, slug');
-  if (error) throw error;
+  // Re-read so newly inserted tracks get their database-assigned ids.
+  const { data: tracks, error: tracksError } = await db.from('tracks').select('id, name, slug');
+  if (tracksError) throw tracksError;
   return tracks.sort((a, b) => a.name.localeCompare(b.name));
 }
 
