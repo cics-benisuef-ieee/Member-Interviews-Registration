@@ -15,13 +15,13 @@ Built with **Next.js + Supabase + Vercel** — every service runs on a free tier
 
 ## Tech stack
 
-| Layer | Choice |
-|---|---|
-| Framework | Next.js 15 (App Router) + React 19 + TypeScript |
+| Layer           | Choice                                          |
+| --------------- | ----------------------------------------------- |
+| Framework       | Next.js 15 (App Router) + React 19 + TypeScript |
 | Database & auth | Supabase (Postgres + Auth + Row Level Security) |
-| Styling | Tailwind CSS (IEEE palette as design tokens) |
-| Validation | Zod |
-| Hosting | Vercel |
+| Styling         | Tailwind CSS (IEEE palette as design tokens)    |
+| Validation      | Zod                                             |
+| Hosting         | Vercel                                          |
 
 ## Tracks
 
@@ -52,7 +52,17 @@ npm run db:seed
 
 The script prints one login per track plus the admin login, all sharing `TRACK_DEFAULT_PASSWORD`. **Change that password before sharing.**
 
-The seed only sets a password when it *creates* an account, so it never overwrites a password you changed later from the admin panel. That means editing `TRACK_DEFAULT_PASSWORD` after the first seed does nothing by itself — run `npm run db:passwords` to push the new value to every existing login.
+The seed only sets a password when it _creates_ an account, so it never overwrites a password you changed later from the admin panel. That means editing `TRACK_DEFAULT_PASSWORD` after the first seed does nothing by itself — run `npm run db:passwords` to push the new value to every existing login.
+
+To change **one** account instead of all of them:
+
+```bash
+npm run db:password -- red-team@your-domain            # generates a strong password, prints it
+npm run db:password -- admin@your-domain 'Chosen1!'    # sets a specific password
+npm run db:password -- red-team                        # the email domain is assumed
+```
+
+This works for any login, including the admin account (which has no password UI in the app). Track logins can also be reset from `/admin/tracks`, which generates a random password — but it cannot set a value you choose.
 
 ### 4. Run locally
 
@@ -64,21 +74,21 @@ Open http://localhost:3000 — visitors land on the registration form.
 
 ## Scripts
 
-| Script | Purpose |
-|---|---|
-| `npm run dev` | Development server |
-| `npm run build` / `npm start` | Production build / serve |
-| `npm run lint` | ESLint |
-| `npm run format` | Prettier |
-| `npm run db:seed` | Seed tracks + logins (idempotent) |
-| `npm run db:types` | Regenerate database types (requires Supabase CLI) |
+| Script                        | Purpose                                           |
+| ----------------------------- | ------------------------------------------------- |
+| `npm run dev`                 | Development server                                |
+| `npm run build` / `npm start` | Production build / serve                          |
+| `npm run lint`                | ESLint                                            |
+| `npm run format`              | Prettier                                          |
+| `npm run db:seed`             | Seed tracks + logins (idempotent)                 |
+| `npm run db:types`            | Regenerate database types (requires Supabase CLI) |
 
 ## Roles
 
-| Role | Login | Can do |
-|---|---|---|
-| Track board | `track-slug@your-domain` | See its own queue; start, pass, reject, transfer |
-| Admin | `admin@your-domain` | Everything: all queues, tracks, credentials, members, history |
+| Role        | Login                    | Can do                                                        |
+| ----------- | ------------------------ | ------------------------------------------------------------- |
+| Track board | `track-slug@your-domain` | See its own queue; start, pass, reject, transfer              |
+| Admin       | `admin@your-domain`      | Everything: all queues, tracks, credentials, members, history |
 
 ## Project structure
 
