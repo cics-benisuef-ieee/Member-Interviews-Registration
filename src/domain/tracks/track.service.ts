@@ -37,7 +37,9 @@ export async function setTrackActive(id: string, isActive: boolean): Promise<voi
 }
 
 /** Generates a fresh password for the track's shared login. */
-export async function resetTrackCredentials(trackId: string): Promise<{ email: string; password: string }> {
+export async function resetTrackCredentials(
+  trackId: string,
+): Promise<{ email: string; password: string }> {
   const supabase = await createClient();
   const { data: profile } = await supabase
     .from('profiles')
@@ -53,7 +55,7 @@ export async function resetTrackCredentials(trackId: string): Promise<{ email: s
   const { error } = await admin.auth.admin.updateUserById(profile.id, { password });
   if (error) throw new Error(`Could not reset the password: ${error.message}`);
 
-  return { email: `${(await getTrackSlug(trackId))}@${env.TRACK_EMAIL_DOMAIN}`, password };
+  return { email: `${await getTrackSlug(trackId)}@${env.TRACK_EMAIL_DOMAIN}`, password };
 }
 
 async function createTrackLogin(track: Track): Promise<void> {

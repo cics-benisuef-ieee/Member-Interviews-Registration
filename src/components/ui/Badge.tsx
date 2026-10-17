@@ -5,13 +5,7 @@ import type { HTMLAttributes } from 'react';
  * Badge tones map directly to the interview lifecycle. Colors follow the
  * IEEE rule: dark palette colors on white cards.
  */
-export type BadgeTone =
-  | 'waiting'
-  | 'active'
-  | 'passed'
-  | 'rejected'
-  | 'transferred'
-  | 'neutral';
+export type BadgeTone = 'waiting' | 'active' | 'passed' | 'rejected' | 'transferred' | 'neutral';
 
 const TONE_CLASSES: Record<BadgeTone, string> = {
   waiting: 'bg-ieee-gold text-ieee-navy',

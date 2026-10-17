@@ -13,13 +13,19 @@ interface MemberEditFormProps {
 
 /** Inline edit of a member's details. */
 export function MemberEditForm({ member, onDone }: MemberEditFormProps) {
-  const [state, formAction, pending] = useActionState<MemberFormState, FormData>(updateMemberAction, {
-    error: null,
-    successMessage: null,
-  });
+  const [state, formAction, pending] = useActionState<MemberFormState, FormData>(
+    updateMemberAction,
+    {
+      error: null,
+      successMessage: null,
+    },
+  );
 
   return (
-    <form action={formAction} className="space-y-3 rounded-lg border border-hairline bg-surface p-4">
+    <form
+      action={formAction}
+      className="space-y-3 rounded-lg border border-hairline bg-surface p-4"
+    >
       <input type="hidden" name="memberId" value={member.id} />
 
       <Field label="Full name">

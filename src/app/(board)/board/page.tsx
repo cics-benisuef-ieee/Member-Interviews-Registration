@@ -16,7 +16,9 @@ export const dynamic = 'force-dynamic';
 export default async function BoardPage() {
   const user = await requireTrackUser();
   const board = await getTrackBoard(user.trackId!);
-  const otherTracks = (await listRegistrationTracks()).filter((track) => track.id !== board.trackId);
+  const otherTracks = (await listRegistrationTracks()).filter(
+    (track) => track.id !== board.trackId,
+  );
 
   const isEmpty = !board.nowServing && board.waiting.length === 0 && board.finished.length === 0;
   const nextUp = board.waiting[0];
@@ -24,7 +26,11 @@ export default async function BoardPage() {
   return (
     <>
       <AutoRefresh />
-      <QueueHeader board={board} waitingCount={board.waiting.length} finishedCount={board.finished.length} />
+      <QueueHeader
+        board={board}
+        waitingCount={board.waiting.length}
+        finishedCount={board.finished.length}
+      />
 
       {isEmpty ? (
         <QueueEmpty trackName={board.trackName} />

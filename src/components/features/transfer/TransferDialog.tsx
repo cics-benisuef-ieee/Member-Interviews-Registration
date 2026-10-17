@@ -62,7 +62,10 @@ export function TransferDialog({ interviewId, targetTracks }: TransferDialogProp
             <input type="hidden" name="interviewId" value={interviewId} />
 
             <div>
-              <label htmlFor="targetTrackId" className="mb-1 block text-sm font-semibold text-ieee-navy">
+              <label
+                htmlFor="targetTrackId"
+                className="mb-1 block text-sm font-semibold text-ieee-navy"
+              >
                 Track
               </label>
               <Select id="targetTrackId" name="targetTrackId" required defaultValue="">

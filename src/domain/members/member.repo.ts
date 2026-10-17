@@ -31,7 +31,9 @@ export async function searchMembers(query: string, limit = 50): Promise<Member[]
     .limit(limit);
 
   if (query) {
-    builder = builder.or(`full_name.ilike.%${escapeLike(query)},phone.ilike.%${escapeLike(query)}%`);
+    builder = builder.or(
+      `full_name.ilike.%${escapeLike(query)},phone.ilike.%${escapeLike(query)}%`,
+    );
   }
 
   const { data, error } = await builder;

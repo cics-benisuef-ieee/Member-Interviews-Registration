@@ -29,10 +29,10 @@ Registers (public form or admin)
 
 ## Who does what
 
-| Step | Who |
-|---|---|
-| Register a member | The member themselves (public form) or an admin |
-| Start / pass / reject | The track's board (or an admin) |
-| Send to another track | The track's board, via "Send to another track" |
-| Fix a mistake | Admin (`/admin/members`, `/admin/tracks`) |
-| Review what happened | Admin (`/admin/history`) |
+| Step                  | Who                                             |
+| --------------------- | ----------------------------------------------- |
+| Register a member     | The member themselves (public form) or an admin |
+| Start / pass / reject | The track's board (or an admin)                 |
+| Send to another track | The track's board, via "Send to another track"  |
+| Fix a mistake         | Admin (`/admin/members`, `/admin/tracks`)       |
+| Review what happened  | Admin (`/admin/history`)                        |

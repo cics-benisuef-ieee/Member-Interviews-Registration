@@ -21,10 +21,7 @@ export default async function AdminHistoryPage({
 
   return (
     <>
-      <PageHeader
-        title="History"
-        subtitle={`Every interview recorded. Today is ${today}.`}
-      />
+      <PageHeader title="History" subtitle={`Every interview recorded. Today is ${today}.`} />
 
       <div className="space-y-6">
         <Card>

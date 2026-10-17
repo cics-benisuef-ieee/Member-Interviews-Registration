@@ -2,12 +2,12 @@
 
 ## Roles
 
-| Role | How they sign in | Reach |
-|---|---|---|
-| Anonymous visitor | none | Registration form only: reads active tracks, registers a member |
-| Track board (`COMMITTEE`) | shared login per track | Its own track's queue, read + state changes |
-| Admin (`ADMIN`) | one admin login | Everything |
-| Secret key (`sb_secret_…`) | server-only | Credential management; never exposed to the browser |
+| Role                       | How they sign in       | Reach                                                           |
+| -------------------------- | ---------------------- | --------------------------------------------------------------- |
+| Anonymous visitor          | none                   | Registration form only: reads active tracks, registers a member |
+| Track board (`COMMITTEE`)  | shared login per track | Its own track's queue, read + state changes                     |
+| Admin (`ADMIN`)            | one admin login        | Everything                                                      |
+| Secret key (`sb_secret_…`) | server-only            | Credential management; never exposed to the browser             |
 
 Supabase maps API keys to Postgres roles: the publishable key acts as `anon` (signed out) or `authenticated` (signed in), and the secret key acts as `service_role`, which bypasses RLS entirely.
 
@@ -15,14 +15,14 @@ Supabase maps API keys to Postgres roles: the publishable key acts as `anon` (si
 
 Every table has RLS enabled.
 
-| Table | Who can read | Who can write |
-|---|---|---|
-| tracks | everyone | admin only |
-| app_settings | everyone (read) | admin only |
-| profiles | own profile; admin reads all | secret key only (account creation) |
-| members | any signed-in user | admin (update/delete); inserts only via `register_member()` |
-| interviews | admin all; board only its own track | **no direct writes** — only via the queue functions |
-| audit_log | admin | functions only |
+| Table        | Who can read                        | Who can write                                               |
+| ------------ | ----------------------------------- | ----------------------------------------------------------- |
+| tracks       | everyone                            | admin only                                                  |
+| app_settings | everyone (read)                     | admin only                                                  |
+| profiles     | own profile; admin reads all        | secret key only (account creation)                          |
+| members      | any signed-in user                  | admin (update/delete); inserts only via `register_member()` |
+| interviews   | admin all; board only its own track | **no direct writes** — only via the queue functions         |
+| audit_log    | admin                               | functions only                                              |
 
 The interviews policy is the important one:
 

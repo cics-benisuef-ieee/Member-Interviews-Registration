@@ -1,6 +1,10 @@
 'use client';
 
-import { resetTrackCredentialsAction, setTrackActiveAction, type TrackFormState } from '@/actions/track.actions';
+import {
+  resetTrackCredentialsAction,
+  setTrackActiveAction,
+  type TrackFormState,
+} from '@/actions/track.actions';
 import { Badge } from '@/components/ui/Badge';
 import type { TrackWithLogin } from '@/domain/tracks/track.types';
 import { KeyRound } from 'lucide-react';
@@ -55,8 +59,8 @@ export function TrackRow({ track }: { track: TrackWithLogin }) {
         )}
         {state.newCredential && (
           <p className="mt-2 rounded-lg bg-ieee-gold/30 px-3 py-2 text-right text-sm font-semibold text-ieee-navy">
-            New password for {state.newCredential.email}: <code>{state.newCredential.password}</code> —
-            copy it now, it won’t be shown again.
+            New password for {state.newCredential.email}:{' '}
+            <code>{state.newCredential.password}</code> — copy it now, it won’t be shown again.
           </p>
         )}
       </td>

@@ -36,7 +36,9 @@ export function FinishedRow({ entry }: { entry: QueueEntry }) {
       <span className="w-12 shrink-0 text-center font-bold text-ieee-gray">
         {formatQueueNumber(entry.queueNumber)}
       </span>
-      <p className="min-w-0 flex-1 truncate font-semibold text-ieee-navy">{entry.member.fullName}</p>
+      <p className="min-w-0 flex-1 truncate font-semibold text-ieee-navy">
+        {entry.member.fullName}
+      </p>
       {entry.sourceTrackName && (
         <span className="hidden text-xs text-ieee-gray sm:inline">
           from {entry.sourceTrackName}

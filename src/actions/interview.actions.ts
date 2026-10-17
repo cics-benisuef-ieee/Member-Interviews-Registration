@@ -2,7 +2,11 @@
 
 import { revalidatePath } from 'next/cache';
 import { requireTrackUser } from '@/domain/auth/guards';
-import { finishInterview, startInterview, transferInterview } from '@/domain/interviews/interview.service';
+import {
+  finishInterview,
+  startInterview,
+  transferInterview,
+} from '@/domain/interviews/interview.service';
 
 /** WAITING → IN_INTERVIEW. Only the board that owns the track may call this. */
 export async function startInterviewAction(interviewId: string): Promise<void> {

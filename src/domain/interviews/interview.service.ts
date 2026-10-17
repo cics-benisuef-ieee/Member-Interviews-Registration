@@ -15,7 +15,10 @@ import type {
 
 /** Everything one track's board displays for today. */
 export async function getTrackBoard(trackId: string): Promise<TrackBoard> {
-  const [track, day] = await Promise.all([trackRepo.findTrack(trackId), interviewRepo.getQueueDay()]);
+  const [track, day] = await Promise.all([
+    trackRepo.findTrack(trackId),
+    interviewRepo.getQueueDay(),
+  ]);
   if (!track) throw new Error('Track not found.');
 
   const queue = await interviewRepo.listTrackQueue(trackId, day);
@@ -144,10 +147,7 @@ export async function transferInterview(input: {
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
-function decorateWithSourceTrack(
-  entry: QueueEntry,
-  sourceTracks: Map<string, string>,
-): QueueEntry {
+function decorateWithSourceTrack(entry: QueueEntry, sourceTracks: Map<string, string>): QueueEntry {
   if (!entry.transferredFromId) return entry;
 
   const sourceTrackName = sourceTracks.get(entry.id);

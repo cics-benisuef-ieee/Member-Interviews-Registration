@@ -9,7 +9,12 @@ interface TrackSelectProps {
 }
 
 /** The track dropdown — used by the public form and the admin panel. */
-export function TrackSelect({ tracks, id = 'trackId', name = 'trackId', defaultValue }: TrackSelectProps) {
+export function TrackSelect({
+  tracks,
+  id = 'trackId',
+  name = 'trackId',
+  defaultValue,
+}: TrackSelectProps) {
   return (
     <Select id={id} name={name} required defaultValue={defaultValue}>
       <option value="" disabled>

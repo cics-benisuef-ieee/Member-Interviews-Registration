@@ -34,7 +34,9 @@ const db = createClient(SUPABASE_URL, SERVICE_KEY, {
 
 // Only accounts that have a profile are ours to touch — this leaves any other
 // auth user in the project alone.
-const { data: profiles, error: profilesError } = await db.from('profiles').select('id, display_name');
+const { data: profiles, error: profilesError } = await db
+  .from('profiles')
+  .select('id, display_name');
 if (profilesError) {
   console.error('Could not read profiles:', profilesError.message);
   process.exit(1);

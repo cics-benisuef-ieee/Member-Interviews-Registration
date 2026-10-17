@@ -28,7 +28,9 @@ export default async function AdminOverviewPage() {
             {summary.nowServingName ? (
               <p className="mt-2 text-sm text-ieee-gray">
                 Interviewing{' '}
-                <span className="font-semibold text-ieee-orange-dark">{summary.nowServingName}</span>
+                <span className="font-semibold text-ieee-orange-dark">
+                  {summary.nowServingName}
+                </span>
               </p>
             ) : (
               <p className="mt-2 text-sm text-ieee-gray">No interview in progress</p>

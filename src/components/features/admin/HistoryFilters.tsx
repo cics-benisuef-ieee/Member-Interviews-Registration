@@ -29,7 +29,11 @@ export function HistoryFilters({ tracks, selectedTrackId, selectedDay }: History
     <form onSubmit={submit} className="flex flex-wrap items-end gap-3">
       <div>
         <label className="mb-1 block text-sm font-semibold text-ieee-navy">Track</label>
-        <Select value={trackId} onChange={(event) => setTrackId(event.target.value)} aria-label="Track">
+        <Select
+          value={trackId}
+          onChange={(event) => setTrackId(event.target.value)}
+          aria-label="Track"
+        >
           <option value="">All tracks</option>
           {tracks.map((track) => (
             <option key={track.id} value={track.id}>
@@ -41,7 +45,12 @@ export function HistoryFilters({ tracks, selectedTrackId, selectedDay }: History
 
       <div>
         <label className="mb-1 block text-sm font-semibold text-ieee-navy">Day</label>
-        <Input type="date" value={day} onChange={(event) => setDay(event.target.value)} aria-label="Day" />
+        <Input
+          type="date"
+          value={day}
+          onChange={(event) => setDay(event.target.value)}
+          aria-label="Day"
+        />
       </div>
 
       <button

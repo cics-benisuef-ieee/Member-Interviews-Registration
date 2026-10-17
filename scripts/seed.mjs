@@ -52,7 +52,9 @@ async function ensureTracks() {
 
   for (const name of TRACK_NAMES) {
     if (byName.has(name)) continue;
-    const { error } = await db.from('tracks').insert({ name, slug: slugify(name), is_active: true });
+    const { error } = await db
+      .from('tracks')
+      .insert({ name, slug: slugify(name), is_active: true });
     if (error) throw error;
     console.log(`+ track: ${name}`);
   }
@@ -83,10 +85,12 @@ async function ensureUser(existingUsers, email, displayName, role, trackId) {
     console.log(`+ login:  ${email}`);
   }
 
-  const { error } = await db.from('profiles').upsert(
-    { id: user.id, display_name: displayName, role, track_id: trackId },
-    { onConflict: 'id' },
-  );
+  const { error } = await db
+    .from('profiles')
+    .upsert(
+      { id: user.id, display_name: displayName, role, track_id: trackId },
+      { onConflict: 'id' },
+    );
   if (error) throw error;
 
   return user.id;

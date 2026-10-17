@@ -111,9 +111,9 @@ export async function getInterview(id: string): Promise<InterviewRow | null> {
 }
 
 /** Today's activity for every track — powers the admin overview. */
-export async function listAllTracksActivity(day: string): Promise<
-  { trackId: string; trackName: string; status: string; memberName: string }[]
-> {
+export async function listAllTracksActivity(
+  day: string,
+): Promise<{ trackId: string; trackName: string; status: string; memberName: string }[]> {
   const supabase = await createClient();
 
   const { data, error } = await supabase
@@ -123,12 +123,14 @@ export async function listAllTracksActivity(day: string): Promise<
 
   if (error) throw new Error(`Could not load today's activity: ${error.message}`);
 
-  return (data as unknown as {
-    track_id: string;
-    status: string;
-    members: { full_name: string } | null;
-    tracks: { id: string; name: string } | null;
-  }[]).map((row) => ({
+  return (
+    data as unknown as {
+      track_id: string;
+      status: string;
+      members: { full_name: string } | null;
+      tracks: { id: string; name: string } | null;
+    }[]
+  ).map((row) => ({
     trackId: row.track_id,
     trackName: row.tracks?.name ?? 'Unknown track',
     status: row.status,
