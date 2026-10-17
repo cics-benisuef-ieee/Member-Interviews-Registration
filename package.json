@@ -13,6 +13,7 @@
     "db:seed": "node --env-file=.env scripts/seed.mjs",
     "db:passwords": "node --env-file=.env scripts/reset-passwords.mjs",
     "db:password": "node --env-file=.env scripts/change-password.mjs",
+    "db:demo": "node --env-file=.env scripts/demo-data.mjs",
     "db:types": "supabase gen types typescript --local > src/types/database.ts"
   },
   "dependencies": {
