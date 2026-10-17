@@ -1,0 +1,19 @@
+# Minimal config for `supabase start` local development.
+# For the hosted project you only need the SQL editor + the seed script.
+project_id = "member-interviews"
+
+[api]
+enabled = true
+port = 54321
+schemas = ["public"]
+extra_search_path = ["public"]
+
+[db]
+port = 54322
+major_version = 15
+
+[auth]
+enabled = true
+# Track logins are email+password accounts; email delivery is not required
+# because accounts are confirmed by the seed script / admin API.
+enable_confirmations = false
