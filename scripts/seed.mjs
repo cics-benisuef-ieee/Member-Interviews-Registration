@@ -110,7 +110,8 @@ async function main() {
   for (const track of tracks) {
     console.log(`  ${`${track.slug}@${EMAIL_DOMAIN}`.padEnd(36)} → ${track.name}`);
   }
-  console.log('\nChange TRACK_DEFAULT_PASSWORD in .env and re-run before sharing with anyone.');
+  console.log('\nExisting logins keep their current password.');
+  console.log('After changing TRACK_DEFAULT_PASSWORD, run `npm run db:passwords` to apply it.');
 }
 
 main().catch((error) => {

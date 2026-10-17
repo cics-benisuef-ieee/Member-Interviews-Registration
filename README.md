@@ -52,6 +52,8 @@ npm run db:seed
 
 The script prints one login per track plus the admin login, all sharing `TRACK_DEFAULT_PASSWORD`. **Change that password before sharing.**
 
+The seed only sets a password when it *creates* an account, so it never overwrites a password you changed later from the admin panel. That means editing `TRACK_DEFAULT_PASSWORD` after the first seed does nothing by itself — run `npm run db:passwords` to push the new value to every existing login.
+
 ### 4. Run locally
 
 ```bash

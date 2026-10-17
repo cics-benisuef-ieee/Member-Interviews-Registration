@@ -11,6 +11,7 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "db:seed": "node --env-file=.env scripts/seed.mjs",
+    "db:passwords": "node --env-file=.env scripts/reset-passwords.mjs",
     "db:types": "supabase gen types typescript --local > src/types/database.ts"
   },
   "dependencies": {
