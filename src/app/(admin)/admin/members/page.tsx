@@ -65,7 +65,7 @@ export default async function AdminMembersPage({
             ) : (
               <ul>
                 {members.map((member) => (
-                  <MemberListItem key={member.id} member={member} status={member.dayStatus} />
+                  <MemberListItem key={member.id} member={member} />
                 ))}
               </ul>
             )}

@@ -2,28 +2,28 @@
 
 import { deleteMemberAction } from '@/actions/member.actions';
 import { Badge } from '@/components/ui/Badge';
-import type { Member, MemberDayStatus } from '@/domain/members/member.types';
-import { Pencil, Trash2 } from 'lucide-react';
+import { RECOMMENDATION_LABELS, type Recommendation } from '@/domain/interviews/evaluation';
+import type { MemberWithStatus, MemberTodayInterview } from '@/domain/members/member.types';
+import { ChevronDown, ChevronUp, Pencil, Trash2 } from 'lucide-react';
 import { useState } from 'react';
+import { formatQueueNumber, formatTime, statusLabel, statusTone } from '../queue/queue.format';
 import { MemberEditForm } from './MemberEditForm';
 import { dayStatusLabel, dayStatusTone } from './members.format';
 
-interface MemberListItemProps {
-  member: Member;
-  /** Where the member stands in today's queue; null if they have no entry today. */
-  status: MemberDayStatus | null;
-}
-
 /**
- * One member in the admin list: where they stand today, their details, with
+ * One member in the admin list: their committee today, where they stand in
+ * the queue, their details — with an expandable per-interview panel and
  * inline editing and deletion.
  *
  * Deletion is destructive and cannot be undone — it also removes every queue
  * entry that member was part of — so it always takes two deliberate clicks.
  */
-export function MemberListItem({ member, status }: MemberListItemProps) {
+export function MemberListItem({ member }: { member: MemberWithStatus }) {
   const [editing, setEditing] = useState(false);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [showDetails, setShowDetails] = useState(false);
+
+  const transferred = member.registeredTrackName !== member.currentTrackName;
 
   return (
     <li className="border-b border-hairline px-5 py-4 last:border-b-0">
@@ -31,10 +31,24 @@ export function MemberListItem({ member, status }: MemberListItemProps) {
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
             <p className="font-semibold text-ieee-navy">{member.fullName}</p>
-            <Badge tone={status ? dayStatusTone(status) : 'neutral'}>
-              {status ? dayStatusLabel(status) : 'Not queued today'}
+            {member.position && <p className="text-sm text-ieee-gray">· {member.position}</p>}
+            <Badge tone={member.dayStatus ? dayStatusTone(member.dayStatus) : 'neutral'}>
+              {member.dayStatus ? dayStatusLabel(member.dayStatus) : 'Not queued today'}
             </Badge>
           </div>
+
+          {member.registeredTrackName && (
+            <p className="mt-1 text-sm text-ieee-gray">
+              Registered in: <span className="font-semibold">{member.registeredTrackName}</span>
+              {transferred && member.currentTrackName && (
+                <>
+                  {' → '}
+                  Now at: <span className="font-semibold">{member.currentTrackName}</span>
+                </>
+              )}
+            </p>
+          )}
+
           <p className="mt-1 text-sm text-ieee-gray">
             {member.phone ?? 'No phone'}
             {member.email && ` · ${member.email}`}
@@ -64,6 +78,21 @@ export function MemberListItem({ member, status }: MemberListItemProps) {
             </>
           ) : (
             <>
+              {member.todayInterviews.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setShowDetails((value) => !value)}
+                  aria-expanded={showDetails}
+                  className="inline-flex items-center gap-1 rounded-xl border border-hairline px-3 py-1.5 text-sm font-semibold text-ieee-gray transition-colors hover:border-ieee-blue hover:text-ieee-blue"
+                >
+                  {showDetails ? (
+                    <ChevronUp className="h-3.5 w-3.5" />
+                  ) : (
+                    <ChevronDown className="h-3.5 w-3.5" />
+                  )}
+                  Details
+                </button>
+              )}
               <button
                 type="button"
                 onClick={() => setEditing((value) => !value)}
@@ -86,6 +115,19 @@ export function MemberListItem({ member, status }: MemberListItemProps) {
         </div>
       </div>
 
+      {showDetails && (
+        <div className="mt-3 space-y-2">
+          {member.todayInterviews.map((entry) => (
+            <TodayInterviewPanel
+              key={entry.id}
+              entry={entry}
+              transferred={transferred}
+              isCurrent={isCurrentEntry(entry, member.todayInterviews)}
+            />
+          ))}
+        </div>
+      )}
+
       {editing && (
         <div className="mt-3">
           <MemberEditForm member={member} onDone={() => setEditing(false)} />
@@ -93,4 +135,56 @@ export function MemberListItem({ member, status }: MemberListItemProps) {
       )}
     </li>
   );
+}
+
+/** One of today's interviews, with the details an admin scans for. */
+function TodayInterviewPanel({
+  entry,
+  transferred,
+  isCurrent,
+}: {
+  entry: MemberTodayInterview;
+  transferred: boolean;
+  isCurrent: boolean;
+}) {
+  return (
+    <div className="rounded-lg border border-hairline bg-surface px-4 py-3 text-sm">
+      <div className="flex flex-wrap items-center gap-2">
+        <Badge tone={statusTone(entry.status)}>{statusLabel(entry.status)}</Badge>
+        <span className="font-semibold text-ieee-navy">{entry.trackName}</span>
+        <span className="text-ieee-gray">Queue {formatQueueNumber(entry.queueNumber)}</span>
+        {entry.transferredFromId === null && (
+          <span className="text-xs text-ieee-gray">registered here</span>
+        )}
+        {transferred && isCurrent && <span className="text-xs text-ieee-gray">current</span>}
+        {entry.overallTotal !== null && <Badge tone="neutral">{entry.overallTotal}/100</Badge>}
+        {entry.recommendation && <RecommendationTag recommendation={entry.recommendation} />}
+      </div>
+
+      <p className="mt-1 text-xs text-ieee-gray">
+        Started {formatTime(entry.startedAt)} · Finished {formatTime(entry.finishedAt)}
+        {entry.interviewers.length > 0 && ` · ${entry.interviewers.join(', ')}`}
+      </p>
+    </div>
+  );
+}
+
+function RecommendationTag({ recommendation }: { recommendation: Recommendation }) {
+  const label = RECOMMENDATION_LABELS[recommendation];
+  const toneClass =
+    recommendation === 'STRONG_YES' || recommendation === 'YES'
+      ? 'text-ieee-green-dark'
+      : 'text-ieee-red-dark';
+  return <span className={`text-xs font-semibold ${toneClass}`}>{label}</span>;
+}
+
+/**
+ * The current stop of the member's day: an entry no other of today's entries
+ * was transferred out of. Mirrors the folding done in the members service.
+ */
+function isCurrentEntry(entry: MemberTodayInterview, all: MemberTodayInterview[]): boolean {
+  const handedOn = new Set(
+    all.map((candidate) => candidate.transferredFromId).filter((id): id is string => id !== null),
+  );
+  return !handedOn.has(entry.id);
 }

@@ -13,7 +13,7 @@ export default async function AdminTracksPage() {
     <>
       <PageHeader
         title="Tracks"
-        subtitle="Each track has one shared login for its interview board."
+        subtitle="Each track has one shared login for its interview board. Tracks marked for the TV appear on the public hall display."
       />
 
       <div className="space-y-6">
@@ -28,6 +28,7 @@ export default async function AdminTracksPage() {
                 <th className="px-5 py-3">Track</th>
                 <th className="px-5 py-3">Login email</th>
                 <th className="px-5 py-3">Status</th>
+                <th className="px-5 py-3">On TV</th>
                 <th className="px-5 py-3 text-right">Actions</th>
               </tr>
             </thead>

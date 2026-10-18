@@ -9,6 +9,7 @@ export interface TrackRow {
   name: string;
   slug: string;
   is_active: boolean;
+  tv_visible: boolean;
 }
 
 export interface MemberRow {
@@ -17,6 +18,7 @@ export interface MemberRow {
   phone: string | null;
   email: string | null;
   notes: string | null;
+  position: string | null;
 }
 
 export interface InterviewRow {
@@ -30,6 +32,12 @@ export interface InterviewRow {
   notes: string | null;
   started_at: string | null;
   finished_at: string | null;
+  /** Section key → score, as saved by the five-section evaluation form. */
+  evaluation: Record<string, number> | null;
+  overall_total: number | null;
+  recommendation: 'STRONG_YES' | 'YES' | 'NO' | 'STRONG_NO' | null;
+  final_notes: string | null;
+  evaluation_updated_at: string | null;
 }
 
 export interface ProfileRow {

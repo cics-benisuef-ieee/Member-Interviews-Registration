@@ -70,13 +70,15 @@ export function TrackBoardView({ board, otherTracks }: TrackBoardViewProps) {
                 {board.waiting.map((entry) => (
                   <QueueRow
                     key={entry.id}
+                    // Any waiting member may be called — skipping ahead is
+                    // allowed and the queue order stays as printed. Starting
+                    // sets only that row IN_INTERVIEW; everything else in the
+                    // queue is untouched.
                     entry={entry}
                     action={
-                      !board.nowServing && entry.id === nextUp?.id ? (
-                        <form action={startInterviewAction.bind(null, entry.id)}>
-                          <Button size="sm">Start</Button>
-                        </form>
-                      ) : null
+                      <form action={startInterviewAction.bind(null, entry.id)}>
+                        <Button size="sm">Start</Button>
+                      </form>
                     }
                   />
                 ))}

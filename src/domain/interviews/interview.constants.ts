@@ -16,7 +16,9 @@ export type InterviewStatus = (typeof INTERVIEW_STATUSES)[number];
 
 export const STATUS_TRANSITIONS: Record<InterviewStatus, readonly InterviewStatus[]> = {
   WAITING: ['IN_INTERVIEW'],
-  IN_INTERVIEW: ['PASSED', 'REJECTED', 'NEEDS_ANOTHER_TRACK'],
+  // Unstart puts a member back in the waiting queue; the evaluation saved so
+  // far (and their queue number) is preserved.
+  IN_INTERVIEW: ['WAITING', 'PASSED', 'REJECTED', 'NEEDS_ANOTHER_TRACK'],
   PASSED: [],
   REJECTED: [],
   NEEDS_ANOTHER_TRACK: [],

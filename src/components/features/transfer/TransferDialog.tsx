@@ -9,13 +9,21 @@ import { useEffect, useRef, useState, useActionState } from 'react';
 interface TransferDialogProps {
   interviewId: string;
   targetTracks: { id: string; name: string }[];
+  /** Transfers are gated on a complete evaluation, like pass and reject. */
+  disabled?: boolean;
+  disabledHint?: string;
 }
 
 /**
  * Lets the board send the member to another track for a second interview
  * today. The member is appended to the target track's queue.
  */
-export function TransferDialog({ interviewId, targetTracks }: TransferDialogProps) {
+export function TransferDialog({
+  interviewId,
+  targetTracks,
+  disabled = false,
+  disabledHint,
+}: TransferDialogProps) {
   const [open, setOpen] = useState(false);
   const [wasSubmitted, setWasSubmitted] = useState(false);
   const [state, formAction, pending] = useActionState(transferInterviewAction, { error: null });
@@ -38,7 +46,13 @@ export function TransferDialog({ interviewId, targetTracks }: TransferDialogProp
 
   return (
     <>
-      <Button variant="accent" type="button" onClick={() => setOpen(true)}>
+      <Button
+        variant="accent"
+        type="button"
+        disabled={disabled}
+        title={disabled ? disabledHint : undefined}
+        onClick={() => setOpen(true)}
+      >
         <ArrowRightLeft className="h-4 w-4" />
         Send to another track
       </Button>

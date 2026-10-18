@@ -4,7 +4,7 @@ export default function PublicLayout({ children }: { children: React.ReactNode }
     <div className="min-h-screen bg-surface">
       <header className="bg-ieee-navy px-6 py-5 text-white">
         <p className="text-xs font-semibold tracking-widest text-ieee-orange uppercase">
-          IEEE Chapter
+          CS/CIS Beni-Suef Chapter
         </p>
         <p className="mt-1 text-lg font-bold">Member Interviews</p>
       </header>

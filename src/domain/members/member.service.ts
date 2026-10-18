@@ -7,6 +7,7 @@ import { memberInputSchema } from './member.schema';
 import type {
   Member,
   MemberDayStatus,
+  MemberTodayInterview,
   MemberWithInterviews,
   MemberWithStatus,
 } from './member.types';
@@ -17,7 +18,7 @@ export async function getMemberWithInterviews(id: string): Promise<MemberWithInt
 
   const { data: memberRow } = await supabase
     .from('members')
-    .select('id, full_name, phone, email, notes')
+    .select('id, full_name, phone, email, notes, position')
     .eq('id', id)
     .single();
 
@@ -61,6 +62,7 @@ export function parseMemberInput(formData: FormData) {
     phone: formData.get('phone') ?? undefined,
     email: formData.get('email') ?? undefined,
     notes: formData.get('notes') ?? undefined,
+    position: formData.get('position') ?? undefined,
   });
 }
 
@@ -85,15 +87,58 @@ export async function searchMembersWithStatus(query: string): Promise<MemberWith
   if (members.length === 0) return [];
 
   const day = await interviewRepo.getQueueDay();
-  const statuses = await interviewRepo.listTodayMemberStatuses(
+  const detailsByMember = await interviewRepo.listTodayInterviewDetails(
     day,
     members.map((member) => member.id),
   );
 
-  return members.map((member) => ({
-    ...member,
-    dayStatus: summarizeMemberDay(statuses.get(member.id) ?? []),
-  }));
+  return members.map((member) => {
+    const todayInterviews = (detailsByMember.get(member.id) ?? []).map((detail) => ({
+      id: detail.id,
+      queueNumber: detail.queueNumber,
+      status: detail.status,
+      trackName: detail.trackName,
+      startedAt: detail.startedAt,
+      finishedAt: detail.finishedAt,
+      transferredFromId: detail.transferredFromId,
+      overallTotal: detail.overallTotal,
+      recommendation: detail.recommendation,
+      interviewers: detail.interviewers,
+    }));
+
+    return {
+      ...member,
+      dayStatus: summarizeMemberDay(todayInterviews.map((entry) => entry.status)),
+      todayInterviews,
+      ...todayTrackContext(todayInterviews),
+    };
+  });
+}
+
+/**
+ * Where in the committee circuit the member is: the track they registered
+ * into (their origin) and the track holding them now. The two differ only
+ * when a transfer moved them on — an entry no other entry was transferred
+ * out of is the current end of the chain. A member who registered directly
+ * into several tracks has several ends; the first (by queue number) speaks
+ * for the row.
+ */
+function todayTrackContext(interviews: MemberTodayInterview[]): {
+  registeredTrackName: string | null;
+  currentTrackName: string | null;
+} {
+  if (interviews.length === 0) return { registeredTrackName: null, currentTrackName: null };
+
+  const handedOn = new Set(
+    interviews.map((entry) => entry.transferredFromId).filter((id): id is string => id !== null),
+  );
+  const origin = interviews.find((entry) => entry.transferredFromId === null);
+  const current = interviews.find((entry) => !handedOn.has(entry.id));
+
+  return {
+    registeredTrackName: origin?.trackName ?? interviews[0].trackName,
+    currentTrackName: current?.trackName ?? interviews[interviews.length - 1].trackName,
+  };
 }
 
 /**

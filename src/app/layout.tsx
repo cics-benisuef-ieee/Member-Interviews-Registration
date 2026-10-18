@@ -10,7 +10,7 @@ const sourceSans = Source_Sans_3({
 });
 
 export const metadata: Metadata = {
-  title: 'IEEE Chapter — Member Interviews',
+  title: 'CS/CIS Beni-Suef Chapter — Member Interviews',
   description: 'Interview queue system for chapter member registration and track interviews.',
 };
 

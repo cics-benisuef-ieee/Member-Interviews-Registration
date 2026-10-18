@@ -1,7 +1,8 @@
 import { createClient } from '@/lib/supabase/server';
 import type { InterviewRow } from '@/types/database';
 import type { InterviewOutcome, InterviewStatus } from './interview.constants';
-import type { InterviewHistoryEntry, QueueEntry } from './interview.types';
+import type { EvaluationScores, InterviewEvaluation, Recommendation } from './evaluation';
+import type { InterviewHistoryEntry, QueueEntry, TvBoard } from './interview.types';
 
 /** The current queue day (YYYY-MM-DD) in the chapter's timezone. */
 export async function getQueueDay(): Promise<string> {
@@ -11,12 +12,58 @@ export async function getQueueDay(): Promise<string> {
   return data as string;
 }
 
+/**
+ * Board summaries for every track an admin marked visible on the hall
+ * display. Read-only and callable without a login (the RPC is granted to
+ * anon) — it returns only names, queue numbers, and counts.
+ */
+export async function getTvBoards(): Promise<{ day: string; boards: TvBoard[] }> {
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc('get_tv_boards');
+  if (error) throw new Error(`Could not load the TV display: ${error.message}`);
+  return data as { day: string; boards: TvBoard[] };
+}
+
+/** Row fields shared by every query that carries an evaluation. */
+const EVALUATION_SELECT =
+  'evaluation, overall_total, recommendation, final_notes, evaluation_updated_at';
+
+interface EvaluationRow {
+  evaluation: Record<string, number> | null;
+  overall_total: number | null;
+  recommendation: Recommendation | null;
+  final_notes: string | null;
+  evaluation_updated_at: string | null;
+}
+
+/**
+ * Reshapes the evaluation columns into the domain object. A row with no
+ * evaluation yet (nothing scored, no verdict) reads as null.
+ */
+function toEvaluation(row: EvaluationRow): InterviewEvaluation | null {
+  const hasAny =
+    row.evaluation !== null ||
+    row.overall_total !== null ||
+    row.recommendation !== null ||
+    row.final_notes !== null;
+  if (!hasAny) return null;
+
+  return {
+    scores: (row.evaluation ?? {}) as Partial<EvaluationScores>,
+    total: row.overall_total ?? 0,
+    recommendation: row.recommendation,
+    finalNotes: row.final_notes,
+    updatedAt: row.evaluation_updated_at,
+  };
+}
+
 const QUEUE_ENTRY_SELECT = `
   id, queue_number, status, started_at, finished_at, notes, transferred_from_id, member_id,
+  ${EVALUATION_SELECT},
   members ( id, full_name, phone )
 `;
 
-interface QueueEntryRow {
+interface QueueEntryRow extends EvaluationRow {
   id: string;
   queue_number: number;
   status: QueueEntry['status'];
@@ -37,6 +84,7 @@ function toQueueEntry(row: QueueEntryRow): QueueEntry {
     finishedAt: row.finished_at,
     notes: row.notes,
     transferredFromId: row.transferred_from_id,
+    evaluation: toEvaluation(row),
     member: {
       id: row.member_id,
       fullName: row.members?.full_name ?? 'Unknown member',
@@ -59,34 +107,129 @@ export async function listTrackQueue(trackId: string, day: string): Promise<Queu
   return (data as unknown as QueueEntryRow[]).map(toQueueEntry);
 }
 
+/** Actions whose actor counts as having worked on an interview today. */
+const INTERVIEWER_ACTIONS = [
+  'STARTED',
+  'UNSTARTED',
+  'EVALUATION_SAVED',
+  'COMPLETED',
+  'TRANSFERRED',
+];
+
+/** One of a member's queue entries for today, as the members list shows it. */
+export interface TodayInterviewDetail {
+  id: string;
+  queueNumber: number;
+  status: InterviewStatus;
+  trackId: string;
+  trackName: string;
+  startedAt: string | null;
+  finishedAt: string | null;
+  transferredFromId: string | null;
+  overallTotal: number | null;
+  recommendation: Recommendation | null;
+  /** Distinct display names of everyone who acted on this interview. */
+  interviewers: string[];
+}
+
 /**
- * Today's interview status per member — powers the admin members list.
+ * Today's interview entries for the given members — powers the admin members
+ * list (its expandable per-member row).
  *
- * Every status is kept rather than reduced here: a member can hold several
+ * Every entry is kept rather than reduced here: a member can hold several
  * entries a day (a transfer leaves the original row and adds one in the target
  * track), and only the caller can decide what the member's day amounts to.
  */
-export async function listTodayMemberStatuses(
+export async function listTodayInterviewDetails(
   day: string,
   memberIds: string[],
-): Promise<Map<string, InterviewStatus[]>> {
-  if (memberIds.length === 0) return new Map();
+): Promise<Map<string, TodayInterviewDetail[]>> {
+  const result = new Map<string, TodayInterviewDetail[]>();
+  if (memberIds.length === 0) return result;
 
   const supabase = await createClient();
   const { data, error } = await supabase
     .from('interviews')
-    .select('member_id, status')
+    .select(
+      `id, member_id, queue_number, status, track_id, started_at, finished_at,
+       transferred_from_id, overall_total, recommendation,
+       tracks!inner ( id, name )`,
+    )
     .eq('queue_day', day)
-    .in('member_id', memberIds);
+    .in('member_id', memberIds)
+    .order('queue_number');
 
-  if (error) throw new Error(`Could not load today's interview statuses: ${error.message}`);
+  if (error) throw new Error(`Could not load today's interviews: ${error.message}`);
 
-  const result = new Map<string, InterviewStatus[]>();
-  for (const row of (data ?? []) as unknown as { member_id: string; status: InterviewStatus }[]) {
+  const rows = (data ?? []) as unknown as {
+    id: string;
+    member_id: string;
+    queue_number: number;
+    status: InterviewStatus;
+    track_id: string;
+    started_at: string | null;
+    finished_at: string | null;
+    transferred_from_id: string | null;
+    overall_total: number | null;
+    recommendation: Recommendation | null;
+    tracks: { id: string; name: string } | null;
+  }[];
+
+  const interviewers = await listInterviewerNames(rows.map((row) => row.id));
+
+  for (const row of rows) {
+    const detail: TodayInterviewDetail = {
+      id: row.id,
+      queueNumber: row.queue_number,
+      status: row.status,
+      trackId: row.track_id,
+      trackName: row.tracks?.name ?? 'Unknown track',
+      startedAt: row.started_at,
+      finishedAt: row.finished_at,
+      transferredFromId: row.transferred_from_id,
+      overallTotal: row.overall_total,
+      recommendation: row.recommendation,
+      interviewers: interviewers.get(row.id) ?? [],
+    };
+
     const existing = result.get(row.member_id);
-    if (existing) existing.push(row.status);
-    else result.set(row.member_id, [row.status]);
+    if (existing) existing.push(detail);
+    else result.set(row.member_id, [detail]);
   }
+
+  return result;
+}
+
+/**
+ * Distinct display names of the accounts that acted on each interview, in the
+ * order they first appear in the audit trail. The audit log is admin-readable
+ * only (see 0004) — which matches its caller, the admin members list.
+ */
+async function listInterviewerNames(interviewIds: string[]): Promise<Map<string, string[]>> {
+  const result = new Map<string, string[]>();
+  if (interviewIds.length === 0) return result;
+
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from('audit_log')
+    .select('interview_id, profiles ( display_name )')
+    .in('interview_id', interviewIds)
+    .in('action', INTERVIEWER_ACTIONS);
+
+  if (error) throw new Error(`Could not load interviewers: ${error.message}`);
+
+  for (const row of (data ?? []) as unknown as {
+    interview_id: string;
+    profiles: { display_name: string } | null;
+  }[]) {
+    const name = row.profiles?.display_name;
+    if (!name) continue;
+
+    const names = result.get(row.interview_id);
+    if (!names) result.set(row.interview_id, [name]);
+    else if (!names.includes(name)) names.push(name);
+  }
+
   return result;
 }
 
@@ -246,6 +389,36 @@ export async function rpcStartInterview(interviewId: string): Promise<void> {
   const supabase = await createClient();
   const { error } = await supabase.rpc('start_interview', { p_interview_id: interviewId });
   if (error) throw new Error(error.message);
+}
+
+/**
+ * IN_INTERVIEW → WAITING. Everything else on the row — queue number,
+ * evaluation, notes — is preserved by the database function.
+ */
+export async function rpcUnstartInterview(interviewId: string): Promise<void> {
+  const supabase = await createClient();
+  const { error } = await supabase.rpc('unstart_interview', { p_interview_id: interviewId });
+  if (error) throw new Error(error.message);
+}
+
+/** Stores the five-section evaluation; returns the overall total saved. */
+export async function rpcSaveInterviewEvaluation(params: {
+  interviewId: string;
+  scores: EvaluationScores;
+  recommendation: Recommendation;
+  finalNotes?: string;
+}): Promise<number> {
+  const supabase = await createClient();
+
+  const { data, error } = await supabase.rpc('save_interview_evaluation', {
+    p_interview_id: params.interviewId,
+    p_evaluation: params.scores,
+    p_recommendation: params.recommendation,
+    p_final_notes: params.finalNotes ?? null,
+  });
+
+  if (error) throw new Error(error.message);
+  return data as number;
 }
 
 export async function rpcCompleteInterview(params: {

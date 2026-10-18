@@ -1,5 +1,6 @@
 import { StatusBadge } from './StatusBadge';
 import type { QueueEntry } from '@/domain/interviews/interview.types';
+import { RECOMMENDATION_LABELS } from '@/domain/interviews/evaluation';
 import { formatQueueNumber } from './queue.format';
 
 interface QueueRowProps {
@@ -39,6 +40,14 @@ export function FinishedRow({ entry }: { entry: QueueEntry }) {
       <p className="min-w-0 flex-1 truncate font-semibold text-ieee-navy">
         {entry.member.fullName}
       </p>
+      {entry.evaluation && (
+        <span className="hidden text-xs text-ieee-gray md:inline">
+          {entry.evaluation.total}/100
+          {entry.evaluation.recommendation
+            ? ` · ${RECOMMENDATION_LABELS[entry.evaluation.recommendation]}`
+            : ''}
+        </span>
+      )}
       {entry.sourceTrackName && (
         <span className="hidden text-xs text-ieee-gray sm:inline">
           from {entry.sourceTrackName}

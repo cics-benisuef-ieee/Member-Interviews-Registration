@@ -2,7 +2,12 @@
 
 import { revalidatePath } from 'next/cache';
 import { requireAdmin } from '@/domain/auth/guards';
-import { createTrack, resetTrackCredentials, setTrackActive } from '@/domain/tracks/track.service';
+import {
+  createTrack,
+  resetTrackCredentials,
+  setTrackActive,
+  setTrackTvVisible,
+} from '@/domain/tracks/track.service';
 
 export interface TrackFormState {
   error: string | null;
@@ -37,6 +42,23 @@ export async function setTrackActiveAction(formData: FormData): Promise<void> {
 
   await setTrackActive(trackId, isActive);
   revalidatePath('/admin/tracks');
+  revalidatePath('/tv');
+}
+
+/**
+ * Shows or hides the track on the public /tv hall display. Visibility is not
+ * the same as access: a hidden track's board, login, and registration all
+ * keep working.
+ */
+export async function setTrackTvVisibleAction(formData: FormData): Promise<void> {
+  await requireAdmin();
+
+  const trackId = String(formData.get('trackId') ?? '');
+  const tvVisible = formData.get('tvVisible') === 'true';
+
+  await setTrackTvVisible(trackId, tvVisible);
+  revalidatePath('/admin/tracks');
+  revalidatePath('/tv');
 }
 
 /** Resets the shared login password and shows the new one exactly once. */

@@ -21,6 +21,12 @@ export const memberInputSchema = z.object({
     .max(1000)
     .optional()
     .transform((value) => value || undefined),
+  position: z
+    .string()
+    .trim()
+    .max(80, 'Position is too long.')
+    .optional()
+    .transform((value) => value || undefined),
 });
 
 export type MemberInput = z.infer<typeof memberInputSchema>;

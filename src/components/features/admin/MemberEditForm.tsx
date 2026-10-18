@@ -40,6 +40,10 @@ export function MemberEditForm({ member, onDone }: MemberEditFormProps) {
         <Input name="email" type="email" defaultValue={member.email ?? ''} />
       </Field>
 
+      <Field label="Position" hint="e.g. “Year 3 · CS” — shown next to the name.">
+        <Input name="position" defaultValue={member.position ?? ''} />
+      </Field>
+
       <Field label="Notes">
         <TextArea name="notes" defaultValue={member.notes ?? ''} />
       </Field>

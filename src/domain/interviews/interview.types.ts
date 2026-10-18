@@ -1,3 +1,4 @@
+import type { InterviewEvaluation } from './evaluation';
 import type { InterviewStatus } from './interview.constants';
 
 /** One line in a track's queue: the interview plus its member. */
@@ -11,6 +12,8 @@ export interface QueueEntry {
   transferredFromId: string | null;
   /** Present on transferred-in entries: the track the member came from. */
   sourceTrackName?: string;
+  /** The five-section evaluation saved so far; null until one is saved. */
+  evaluation: InterviewEvaluation | null;
   member: {
     id: string;
     fullName: string;
@@ -54,4 +57,21 @@ export interface RegistrationReceipt {
   interviewId: string;
   queueNumber: number;
   trackName: string;
+}
+
+/** One waiting member as the public TV display shows them. */
+export interface TvWaitingEntry {
+  fullName: string;
+  queueNumber: number;
+}
+
+/** One track's summary on the public TV display (/tv). */
+export interface TvBoard {
+  trackId: string;
+  trackName: string;
+  nowServingName: string | null;
+  nowServingNumber: number | null;
+  /** Capped server-side — a hall screen shows who is next, not the whole day. */
+  waiting: TvWaitingEntry[];
+  finishedCount: number;
 }

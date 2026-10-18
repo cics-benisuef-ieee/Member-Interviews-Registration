@@ -9,10 +9,11 @@ export function toMember(row: MemberRow): Member {
     phone: row.phone,
     email: row.email,
     notes: row.notes,
+    position: row.position,
   };
 }
 
-const MEMBER_COLUMNS = 'id, full_name, phone, email, notes';
+const MEMBER_COLUMNS = 'id, full_name, phone, email, notes, position';
 
 export async function findMember(id: string): Promise<Member | null> {
   const supabase = await createClient();
@@ -48,7 +49,13 @@ export async function searchMembers(query: string, limit = 50): Promise<Member[]
 
 export async function updateMember(
   id: string,
-  changes: { fullName: string; phone?: string; email?: string; notes?: string },
+  changes: {
+    fullName: string;
+    phone?: string;
+    email?: string;
+    notes?: string;
+    position?: string;
+  },
 ): Promise<void> {
   const supabase = await createClient();
   const { error } = await supabase
@@ -58,6 +65,7 @@ export async function updateMember(
       phone: changes.phone ?? null,
       email: changes.email ?? null,
       notes: changes.notes ?? null,
+      position: changes.position ?? null,
     })
     .eq('id', id);
 

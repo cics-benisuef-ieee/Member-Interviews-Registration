@@ -1,3 +1,4 @@
+import Image from 'next/image';
 import { logoutAction } from '@/actions/auth.actions';
 import type { SessionUser } from '@/domain/auth/auth.types';
 import { NavItemLink } from './NavItemLink';
@@ -11,11 +12,21 @@ interface SidebarProps {
 export function Sidebar({ user, items }: SidebarProps) {
   return (
     <aside className="flex flex-col bg-ieee-navy text-white md:min-h-screen md:w-64 md:shrink-0">
-      <div className="border-b border-white/10 p-5">
-        <p className="text-xs font-semibold tracking-widest text-ieee-orange uppercase">
-          IEEE Chapter
-        </p>
-        <p className="mt-1 text-lg font-bold">Member Interviews</p>
+      <div className="flex items-center gap-3 border-b border-white/10 p-5">
+        <Image
+          src="/logo.png"
+          alt="CS/CIS Beni-Suef Chapter logo"
+          width={48}
+          height={48}
+          priority
+          className="h-12 w-12 shrink-0 rounded-full"
+        />
+        <div className="min-w-0">
+          <p className="text-[11px] font-semibold tracking-wider text-ieee-orange uppercase">
+            CS/CIS Beni-Suef Chapter
+          </p>
+          <p className="mt-0.5 text-lg font-bold">Member Interviews</p>
+        </div>
       </div>
 
       <nav className="flex-1 space-y-1 p-3">

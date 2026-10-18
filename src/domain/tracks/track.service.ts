@@ -36,6 +36,11 @@ export async function setTrackActive(id: string, isActive: boolean): Promise<voi
   await trackRepo.updateTrackActive(id, isActive);
 }
 
+/** Chooses whether a committee appears on the public hall display (/tv). */
+export async function setTrackTvVisible(id: string, tvVisible: boolean): Promise<void> {
+  await trackRepo.updateTrackTvVisible(id, tvVisible);
+}
+
 /** Generates a fresh password for the track's shared login. */
 export async function resetTrackCredentials(
   trackId: string,

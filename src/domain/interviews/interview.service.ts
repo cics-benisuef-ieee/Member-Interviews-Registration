@@ -1,6 +1,7 @@
 import * as trackRepo from '@/domain/tracks/track.repo';
 import * as trackService from '@/domain/tracks/track.service';
 import { FINISHED_STATUSES, isFinishedStatus, type InterviewOutcome } from './interview.constants';
+import { evaluationInputSchema } from './evaluation.schema';
 import * as interviewRepo from './interview.repo';
 import { memberRegistrationSchema, transferInputSchema } from './interview.schema';
 import type {
@@ -9,6 +10,7 @@ import type {
   RegistrationReceipt,
   TrackBoard,
   TrackDaySummary,
+  TvBoard,
 } from './interview.types';
 
 // ── Reads ──────────────────────────────────────────────────────────────────
@@ -73,6 +75,11 @@ export async function getHistory(filters: {
   return { entries, day };
 }
 
+/** Summaries for the public hall display — only tracks opted into /tv. */
+export async function getTvBoards(): Promise<{ day: string; boards: TvBoard[] }> {
+  return interviewRepo.getTvBoards();
+}
+
 // ── Writes ─────────────────────────────────────────────────────────────────
 
 /** Public registration: puts a member into the chosen track's queue today. */
@@ -104,6 +111,53 @@ export async function startInterview(interviewId: string): Promise<void> {
   await interviewRepo.rpcStartInterview(interviewId);
 }
 
+/**
+ * IN_INTERVIEW → WAITING ("wrong member / not ready"). The queue number, the
+ * evaluation saved so far, and the notes all survive; only the clock resets.
+ */
+export async function unstartInterview(interviewId: string): Promise<void> {
+  await interviewRepo.rpcUnstartInterview(interviewId);
+}
+
+/**
+ * Saves the five-section evaluation on an open interview. Saving is allowed
+ * as often as the committee likes while the member is in the queue — the
+ * recommendation is stored separately and can be revised until the interview
+ * is finished.
+ */
+export async function saveInterviewEvaluation(input: {
+  interviewId: string;
+  scores: Record<string, unknown>;
+  recommendation: string;
+  finalNotes?: string;
+}): Promise<{ interviewId: string; total: number }> {
+  const parsed = evaluationInputSchema.parse(input);
+
+  const total = await interviewRepo.rpcSaveInterviewEvaluation({
+    interviewId: parsed.interviewId,
+    scores: parsed.scores,
+    recommendation: parsed.recommendation,
+    finalNotes: parsed.finalNotes,
+  });
+
+  return { interviewId: parsed.interviewId, total };
+}
+
+/**
+ * The database refuses to finish an interview without a complete evaluation;
+ * checking here turns that refusal into a clear message before any state
+ * changes, matching the same rule enforced in `complete_interview`.
+ */
+async function assertEvaluationComplete(interviewId: string): Promise<void> {
+  const row = await interviewRepo.getInterview(interviewId);
+  if (!row) throw new Error('Interview not found.');
+  if (row.overall_total === null || row.recommendation === null) {
+    throw new Error(
+      'Complete the evaluation — every section plus a recommendation — before finishing this interview.',
+    );
+  }
+}
+
 /** Records the outcome of an interview in progress. */
 export async function finishInterview(params: {
   interviewId: string;
@@ -115,6 +169,7 @@ export async function finishInterview(params: {
     throw new Error('Choose the track to send this member to.');
   }
 
+  await assertEvaluationComplete(params.interviewId);
   await interviewRepo.rpcCompleteInterview(params);
 }
 
@@ -137,6 +192,7 @@ export async function transferInterview(input: {
   }
   if (!target || !target.isActive) throw new Error('That track is not available.');
 
+  await assertEvaluationComplete(parsed.interviewId);
   await interviewRepo.rpcCompleteInterview({
     interviewId: parsed.interviewId,
     outcome: 'TRANSFER',
