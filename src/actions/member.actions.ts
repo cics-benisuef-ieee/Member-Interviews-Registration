@@ -1,9 +1,11 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
+import { z } from 'zod';
 import { requireAdmin } from '@/domain/auth/guards';
 import { applyMemberUpdate, parseMemberInput } from '@/domain/members/member.service';
 import { registerMember } from '@/domain/interviews/interview.service';
+import { deleteMember, deleteMembers } from '@/domain/members/member.repo';
 
 export interface MemberFormState {
   error: string | null;
@@ -55,4 +57,35 @@ export async function updateMemberAction(
       successMessage: null,
     };
   }
+}
+
+/**
+ * Deletion also removes every interview the member was queued for, because
+ * `interviews.member_id` references members with ON DELETE CASCADE. That is
+ * what makes it the right tool for a mistaken or duplicate registration: one
+ * action undoes the whole entry.
+ */
+
+const singleIdSchema = z.string().uuid();
+const idListSchema = z.array(z.string().uuid()).min(1).max(1000);
+
+/** Removes one member. */
+export async function deleteMemberAction(memberId: string): Promise<void> {
+  await requireAdmin();
+  await deleteMember(singleIdSchema.parse(memberId));
+
+  // These screens all quote queue totals.
+  revalidatePath('/admin/members');
+  revalidatePath('/admin');
+  revalidatePath('/board');
+}
+
+/** Removes every listed member at once — for clearing demo or test data. */
+export async function deleteMembersAction(memberIds: string[]): Promise<void> {
+  await requireAdmin();
+  await deleteMembers(idListSchema.parse(memberIds));
+
+  revalidatePath('/admin/members');
+  revalidatePath('/admin');
+  revalidatePath('/board');
 }

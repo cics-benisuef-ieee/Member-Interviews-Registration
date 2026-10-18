@@ -81,6 +81,8 @@ Open http://localhost:3000 — visitors land on the registration form.
 | `npm run lint`                | ESLint                                            |
 | `npm run format`              | Prettier                                          |
 | `npm run db:seed`             | Seed tracks + logins (idempotent)                 |
+| `npm run db:demo`             | Add realistic demo queue data (idempotent)        |
+| `npm run db:clear`            | Empty all members + interviews (backs up first)   |
 | `npm run db:types`            | Regenerate database types (requires Supabase CLI) |
 
 ## Roles

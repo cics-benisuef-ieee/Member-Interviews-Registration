@@ -33,9 +33,11 @@ export async function searchMembers(query: string, limit = 50): Promise<Member[]
     .limit(limit);
 
   if (term) {
-    // Both columns need the same trailing wildcard: the previous version only
-    // had one on `phone`, so searching "Ah" could never match "Ahmed".
-    builder = builder.or(`full_name.ilike.%${term}%,phone.ilike.%${term}%`);
+    // Every column needs the same trailing wildcard: the original version had
+    // one only on `phone`, so searching "Ah" could never match "Ahmed". Email
+    // is searched as well so a test batch (anything under `@demo.local`, say)
+    // can be found and cleared without hunting through the list.
+    builder = builder.or(`full_name.ilike.%${term}%,phone.ilike.%${term}%,email.ilike.%${term}%`);
   }
 
   const { data, error } = await builder;
@@ -60,6 +62,28 @@ export async function updateMember(
     .eq('id', id);
 
   if (error) throw new Error(error.message);
+}
+
+/**
+ * Removes a member and — through ON DELETE CASCADE — every interview they were
+ * queued for. Only admins may delete members (see the RLS policy), so this is
+ * safe to expose through a server action.
+ */
+export async function deleteMember(id: string): Promise<void> {
+  const supabase = await createClient();
+  const { error } = await supabase.from('members').delete().eq('id', id);
+
+  if (error) throw new Error(`Could not delete the member: ${error.message}`);
+}
+
+/** Removes several members in a single statement. */
+export async function deleteMembers(ids: string[]): Promise<void> {
+  if (ids.length === 0) return;
+
+  const supabase = await createClient();
+  const { error } = await supabase.from('members').delete().in('id', ids);
+
+  if (error) throw new Error(`Could not delete those members: ${error.message}`);
 }
 
 /**
