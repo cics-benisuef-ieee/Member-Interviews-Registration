@@ -21,7 +21,8 @@ interface NowServingProps {
 export function NowServing({ entry, availableTracks }: NowServingProps) {
   const evaluation = entry.evaluation;
   const complete = isEvaluationComplete(evaluation);
-  const unfinishedHint = 'Save a complete evaluation first — every section plus a recommendation.';
+  const unfinishedHint =
+    'Save a complete evaluation first — every criterion with a note, both interviewer fields, and a recommendation.';
 
   return (
     <section className="rounded-xl border-2 border-ieee-orange-dark bg-white p-6 shadow-md">

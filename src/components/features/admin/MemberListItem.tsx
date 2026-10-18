@@ -169,13 +169,19 @@ function TodayInterviewPanel({
   );
 }
 
+/** Tone per recommendation, so a scan of the list reads at a glance. */
+const RECOMMENDATION_TONES: Record<Recommendation, string> = {
+  ACCEPTED: 'text-ieee-green-dark',
+  NEEDS_TRAINING: 'text-ieee-orange-dark',
+  REJECTED: 'text-ieee-red-dark',
+};
+
 function RecommendationTag({ recommendation }: { recommendation: Recommendation }) {
-  const label = RECOMMENDATION_LABELS[recommendation];
-  const toneClass =
-    recommendation === 'STRONG_YES' || recommendation === 'YES'
-      ? 'text-ieee-green-dark'
-      : 'text-ieee-red-dark';
-  return <span className={`text-xs font-semibold ${toneClass}`}>{label}</span>;
+  return (
+    <span className={`text-xs font-semibold ${RECOMMENDATION_TONES[recommendation]}`}>
+      {RECOMMENDATION_LABELS[recommendation]}
+    </span>
+  );
 }
 
 /**

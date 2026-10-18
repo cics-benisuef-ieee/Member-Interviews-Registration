@@ -1,42 +1,99 @@
 -- ============================================================================
 -- 0007 · Evaluations, TV visibility, member position
 --
--- Committees score the member they are interviewing on a fixed five-section
--- form (100 points in total); the recommendation is a separate judgement and
--- never counted into the score. An interview cannot be finished until its
--- evaluation is complete — the gate lives here, next to the data, so it
--- cannot be bypassed from the app.
+-- Committees score the member they are interviewing on a fixed form:
+-- Attitude (5 criteria × 10 = 50), Technical Skills (4 × 10 = 40) and
+-- IEEE Knowledge (2 × 5 = 10) — 100 points in total. Every criterion needs a
+-- score *and* a note; the recommendation (Accepted / Needs training /
+-- Rejected) is a separate judgement and never counted into the score. An
+-- interview cannot be finished until its evaluation is complete — the gate
+-- lives here, next to the data, so it cannot be bypassed from the app.
 --
 -- Tracks gain a flag for which committees appear on the public hall display
 -- (/tv), and members gain an optional position (e.g. "Year 3 · CS").
+--
+-- This file is idempotent: re-running it in the SQL editor replaces the
+-- evaluation functions and the recommendation constraint, so an earlier copy
+-- can be upgraded in place without dropping any columns.
 -- ============================================================================
 
 alter table public.tracks
-  add column tv_visible boolean not null default false;
+  add column if not exists tv_visible boolean not null default false;
 
 alter table public.members
-  add column position text;
+  add column if not exists position text;
 
 alter table public.interviews
-  add column evaluation jsonb,
-  add column overall_total integer,
-  add column recommendation text
-    check (recommendation in ('STRONG_YES', 'YES', 'NO', 'STRONG_NO')),
-  add column final_notes text,
-  add column evaluation_updated_at timestamptz;
+  add column if not exists evaluation jsonb,
+  add column if not exists overall_total integer,
+  add column if not exists recommendation text,
+  add column if not exists final_notes text,
+  add column if not exists evaluation_updated_at timestamptz;
 
--- A total only ever comes from the five-section form, whose maximum is 100.
+alter table public.interviews
+  drop constraint if exists overall_total_within_0_100;
+
 alter table public.interviews
   add constraint overall_total_within_0_100
   check (overall_total is null or overall_total between 0 and 100);
 
+-- The recommendation carries the final judgement. Older copies of this file
+-- used STRONG_YES / YES / NO / STRONG_NO; those rows are mapped across below.
+alter table public.interviews
+  drop constraint if exists interviews_recommendation_check;
+
+-- Safety sweep: an earlier copy created the check inline on the column, which
+-- PostgreSQL auto-names. Drop any check that mentions the column by name.
+do $$
+declare
+  v_constraint text;
+begin
+  for v_constraint in
+    select conname
+    from pg_constraint
+    where conrelid = 'public.interviews'::regclass
+      and contype = 'c'
+      and pg_get_constraintdef(oid) like '%recommendation%'
+  loop
+    execute format('alter table public.interviews drop constraint %I', v_constraint);
+  end loop;
+end;
+$$;
+
+update public.interviews
+set recommendation = case recommendation
+  when 'STRONG_YES' then 'ACCEPTED'
+  when 'YES'        then 'ACCEPTED'
+  when 'STRONG_NO'  then 'REJECTED'
+  when 'NO'         then 'REJECTED'
+end
+where recommendation in ('STRONG_YES', 'YES', 'NO', 'STRONG_NO');
+
+alter table public.interviews
+  add constraint interviews_recommendation_check
+  check (recommendation in ('ACCEPTED', 'NEEDS_TRAINING', 'REJECTED'));
+
 -- ── Save an evaluation (board or admin) ────────────────────────────────────
--- p_evaluation maps each of the five section keys to its score:
---   {"technical": 25, "english": 18, "teamwork": 15,
---    "commitment": 16, "experience": 8}
--- Per-section maximums are enforced by the app (one shared form definition);
--- the database enforces that every section is present and the total is sane.
--- The recommendation is stored in its own column, not in the JSON.
+-- p_evaluation shape:
+--   {
+--     "data":   { "interviewerTechnical": "...", "interviewerAttitude": "..." },
+--     "scores": {
+--       "motivation":         { "score": 8, "notes": "…" },
+--       "teamwork":           { "score": 9, "notes": "…" },
+--       "commitment":         { "score": 7, "notes": "…" },
+--       "communication":      { "score": 8, "notes": "…" },
+--       "flexibility":        { "score": 7, "notes": "…" },
+--       "technicalKnowledge": { "score": 8, "notes": "…" },
+--       "analyticalThinking": { "score": 7, "notes": "…" },
+--       "projectsExperience": { "score": 6, "notes": "…" },
+--       "practicalApplication": { "score": 7, "notes": "…" },
+--       "ieeeGoals":          { "score": 4, "notes": "…" },
+--       "studentBranch":      { "score": 4, "notes": "…" }
+--     }
+--   }
+-- Every criterion is validated here: type, range (per criterion), and a
+-- non-empty note. The total is summed from the known criteria only, so stray
+-- keys cannot inflate it. The recommendation is stored in its own column.
 
 create or replace function public.save_interview_evaluation(
   p_interview_id uuid,
@@ -49,31 +106,75 @@ language plpgsql security definer set search_path = public
 as $$
 declare
   v_before public.interviews%rowtype;
-  v_total  integer;
+  v_data   jsonb := coalesce(p_evaluation -> 'data', 'null'::jsonb);
+  v_scores jsonb := coalesce(p_evaluation -> 'scores', 'null'::jsonb);
   v_key    text;
+  v_max    integer;
+  v_total  integer;
 begin
   -- NULL-safe: `not in` alone would let a null recommendation slip through.
-  if p_recommendation is null or p_recommendation not in ('STRONG_YES', 'YES', 'NO', 'STRONG_NO') then
+  if p_recommendation is null
+     or p_recommendation not in ('ACCEPTED', 'NEEDS_TRAINING', 'REJECTED') then
     raise exception 'Unknown recommendation: %', p_recommendation;
   end if;
 
   if coalesce(jsonb_typeof(p_evaluation), 'null') <> 'object' then
-    raise exception 'The evaluation must be an object of section scores.';
+    raise exception 'The evaluation must be an object.';
   end if;
 
-  for v_key in
-    select unnest(array['technical', 'english', 'teamwork', 'commitment', 'experience'])
+  -- Data section: both interviewer fields are required.
+  if jsonb_typeof(v_data) <> 'object' then
+    raise exception 'The evaluation is missing its data section.';
+  end if;
+
+  if coalesce(trim(v_data ->> 'interviewerTechnical'), '') = ''
+     or coalesce(trim(v_data ->> 'interviewerAttitude'), '') = '' then
+    raise exception 'Both interviewer fields are required.';
+  end if;
+
+  if jsonb_typeof(v_scores) <> 'object' then
+    raise exception 'The evaluation is missing its scores.';
+  end if;
+
+  -- Every criterion of the form, with its own maximum.
+  for v_key, v_max in
+    select criteria.criterion_key, criteria.criterion_max
+    from (values
+      ('motivation', 10),
+      ('teamwork', 10),
+      ('commitment', 10),
+      ('communication', 10),
+      ('flexibility', 10),
+      ('technicalKnowledge', 10),
+      ('analyticalThinking', 10),
+      ('projectsExperience', 10),
+      ('practicalApplication', 10),
+      ('ieeeGoals', 5),
+      ('studentBranch', 5)
+    ) as criteria(criterion_key, criterion_max)
   loop
-    -- coalesce: a missing key gives jsonb_typeof NULL, which must also fail.
-    if coalesce(jsonb_typeof(p_evaluation -> v_key), 'null') <> 'number' then
-      raise exception 'Every evaluation section needs a numeric score (missing: %).', v_key;
+    if coalesce(jsonb_typeof(v_scores -> v_key -> 'score'), 'null') <> 'number' then
+      raise exception 'Missing a score for "%".', v_key;
+    end if;
+
+    if (v_scores -> v_key ->> 'score')::numeric < 0
+       or (v_scores -> v_key ->> 'score')::numeric > v_max then
+      raise exception 'The score for "%" must be between 0 and %.', v_key, v_max;
+    end if;
+
+    if coalesce(trim(v_scores -> v_key ->> 'notes'), '') = '' then
+      raise exception 'A note is required for "%".', v_key;
     end if;
   end loop;
 
-  -- Sum only the five known sections, so stray keys cannot inflate the total.
-  select coalesce(sum((p_evaluation -> v_key #>> '{}')::numeric)::integer, 0)
+  -- Sum only the known criteria, so stray keys cannot inflate the total.
+  select coalesce(sum((v_scores -> v_key ->> 'score')::numeric)::integer, 0)
   into v_total
-  from unnest(array['technical', 'english', 'teamwork', 'commitment', 'experience']) as v_key;
+  from unnest(array[
+    'motivation', 'teamwork', 'commitment', 'communication', 'flexibility',
+    'technicalKnowledge', 'analyticalThinking', 'projectsExperience',
+    'practicalApplication', 'ieeeGoals', 'studentBranch'
+  ]) as v_key;
 
   if v_total < 0 or v_total > 100 then
     raise exception 'The evaluation total must be between 0 and 100 (got %).', v_total;
@@ -148,8 +249,9 @@ $$;
 
 -- ── Finish an interview — redefined with the evaluation gate ───────────────
 -- Same behaviour as 0005, plus one rule: an interview can only be finished
--- once its evaluation is complete (every section scored and a recommendation
--- made). Kept here rather than in the app so no client can skip the form.
+-- once its evaluation is complete (every criterion scored with a note, both
+-- interviewer fields filled, and a recommendation made). Kept here rather
+-- than in the app so no client can skip the form.
 
 create or replace function public.complete_interview(
   p_interview_id uuid,
@@ -184,7 +286,7 @@ begin
   end if;
 
   if v_before.overall_total is null or v_before.recommendation is null then
-    raise exception 'Complete the evaluation — every section plus a recommendation — before finishing this interview.';
+    raise exception 'Complete the evaluation — every criterion with a note, plus a recommendation — before finishing this interview.';
   end if;
 
   if p_outcome = 'TRANSFER' then

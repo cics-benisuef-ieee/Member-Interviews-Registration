@@ -1,45 +1,127 @@
 /**
  * The evaluation form — one global definition shared by every track.
  *
- * Five sections, 100 points in total. The recommendation is a separate
- * judgement and is never counted into the score; it lives in its own column
- * on the interview row.
+ * Three scored sections (Attitude 50 + Technical Skills 40 + IEEE Knowledge 10
+ * = 100 points) plus two unscored ones: the Data section (who interviewed the
+ * member) and the Final evaluation (the computed total, a recommendation that
+ * is never counted into the score, and optional notes).
+ *
+ * Every criterion carries both a score and a note — one without the other is
+ * not a complete evaluation, which is the gate for finishing an interview.
  */
 
-export const EVALUATION_SECTIONS = [
-  { key: 'technical', label: 'Technical interview (CS/CIS knowledge)', max: 30 },
-  { key: 'english', label: 'English communication', max: 20 },
-  { key: 'teamwork', label: 'Teamwork & interpersonal skills', max: 20 },
-  { key: 'commitment', label: 'Commitment & availability', max: 20 },
-  { key: 'experience', label: 'Previous experience & projects', max: 10 },
+/** The two free-text fields the committee fills before scoring. */
+export const EVALUATION_DATA_FIELDS = [
+  { key: 'interviewerTechnical', label: 'Interviewer Technical' },
+  { key: 'interviewerAttitude', label: 'Interviewer Attitude' },
 ] as const;
 
-export type EvaluationSectionKey = (typeof EVALUATION_SECTIONS)[number]['key'];
+export type EvaluationDataKey = (typeof EVALUATION_DATA_FIELDS)[number]['key'];
 
-/** Scores keyed by section; a complete form has every section present. */
-export type EvaluationScores = Record<EvaluationSectionKey, number>;
+const ATTITUDE_CRITERIA = [
+  { key: 'motivation', label: 'Motivation & Enthusiasm', max: 10 },
+  { key: 'teamwork', label: 'Teamwork & Collaboration', max: 10 },
+  { key: 'commitment', label: 'Commitment & Discipline', max: 10 },
+  { key: 'communication', label: 'Communication & Confidence', max: 10 },
+  { key: 'flexibility', label: 'Flexibility & Feedback Acceptance', max: 10 },
+] as const;
 
-/** The sum of every section's maximum — 100. */
-export const EVALUATION_MAX_TOTAL = EVALUATION_SECTIONS.reduce(
-  (sum, section) => sum + section.max,
-  0,
-);
+const TECHNICAL_CRITERIA = [
+  { key: 'technicalKnowledge', label: 'Technical Knowledge', max: 10 },
+  { key: 'analyticalThinking', label: 'Analytical Thinking', max: 10 },
+  { key: 'projectsExperience', label: 'Projects / Experience', max: 10 },
+  { key: 'practicalApplication', label: 'Practical Application', max: 10 },
+] as const;
 
-export const RECOMMENDATIONS = ['STRONG_YES', 'YES', 'NO', 'STRONG_NO'] as const;
+const IEEE_CRITERIA = [
+  { key: 'ieeeGoals', label: 'Understanding IEEE Goals', max: 5 },
+  { key: 'studentBranch', label: 'Knowledge of Student Branch', max: 5 },
+] as const;
+
+/** One scored line of the form: a label, a maximum, and a required note. */
+export type EvaluationCriterion =
+  | (typeof ATTITUDE_CRITERIA)[number]
+  | (typeof TECHNICAL_CRITERIA)[number]
+  | (typeof IEEE_CRITERIA)[number];
+
+export type EvaluationSectionKey = 'attitude' | 'technicalSkills' | 'ieeeKnowledge';
+export type EvaluationCriterionKey = EvaluationCriterion['key'];
+
+/** All eleven scored criteria, in form order. */
+export const EVALUATION_CRITERIA: readonly EvaluationCriterion[] = [
+  ...ATTITUDE_CRITERIA,
+  ...TECHNICAL_CRITERIA,
+  ...IEEE_CRITERIA,
+];
+
+export interface EvaluationSection {
+  key: EvaluationSectionKey;
+  label: string;
+  criteria: readonly EvaluationCriterion[];
+  /** Sum of its criteria's maximums — 50, 40 and 10. */
+  max: number;
+}
+
+function criteriaTotal(criteria: readonly { max: number }[]): number {
+  return criteria.reduce((sum, criterion) => sum + criterion.max, 0);
+}
+
+export const EVALUATION_SECTIONS: readonly EvaluationSection[] = [
+  {
+    key: 'attitude',
+    label: 'Attitude',
+    criteria: ATTITUDE_CRITERIA,
+    max: criteriaTotal(ATTITUDE_CRITERIA),
+  },
+  {
+    key: 'technicalSkills',
+    label: 'Technical Skills',
+    criteria: TECHNICAL_CRITERIA,
+    max: criteriaTotal(TECHNICAL_CRITERIA),
+  },
+  {
+    key: 'ieeeKnowledge',
+    label: 'IEEE Knowledge',
+    criteria: IEEE_CRITERIA,
+    max: criteriaTotal(IEEE_CRITERIA),
+  },
+];
+
+/** The sum of every criterion's maximum — 100. */
+export const EVALUATION_MAX_TOTAL = criteriaTotal(EVALUATION_CRITERIA);
+
+/** One criterion as scored: a number and the note that justifies it. */
+export interface CriterionScore {
+  score: number;
+  notes: string;
+}
+
+/** Scores keyed by criterion; a complete form has every criterion present. */
+export type EvaluationScores = Record<EvaluationCriterionKey, CriterionScore>;
+export type PartialEvaluationScores = Partial<EvaluationScores>;
+
+/** The Data section: who ran the interview. */
+export interface EvaluationData {
+  interviewerTechnical: string;
+  interviewerAttitude: string;
+}
+
+export const RECOMMENDATIONS = ['ACCEPTED', 'NEEDS_TRAINING', 'REJECTED'] as const;
 export type Recommendation = (typeof RECOMMENDATIONS)[number];
 
 export const RECOMMENDATION_LABELS: Record<Recommendation, string> = {
-  STRONG_YES: 'Strong yes',
-  YES: 'Yes',
-  NO: 'No',
-  STRONG_NO: 'Strong no',
+  ACCEPTED: 'Accepted',
+  NEEDS_TRAINING: 'Needs training',
+  REJECTED: 'Rejected',
 };
 
 /** The evaluation as stored on one interview row. */
 export interface InterviewEvaluation {
-  /** Per-section scores; partial while the form is being filled in. */
-  scores: Partial<EvaluationScores>;
-  /** Sum of the saved section scores. */
+  /** Data section; empty strings while the form is being filled in. */
+  data: EvaluationData;
+  /** Per-criterion scores; partial while the form is being filled in. */
+  scores: PartialEvaluationScores;
+  /** Sum of the saved criterion scores. */
   total: number;
   /** Null until the interviewer commits to a verdict. */
   recommendation: Recommendation | null;
@@ -47,8 +129,23 @@ export interface InterviewEvaluation {
   updatedAt: string | null;
 }
 
-/** Every section scored and a recommendation made — the gate for finishing. */
+/**
+ * Every criterion scored with a note, both interviewer fields filled, and a
+ * recommendation made — the gate for finishing an interview. Kept in step with
+ * the same rule the database enforces in `save_interview_evaluation`.
+ */
 export function isEvaluationComplete(evaluation: InterviewEvaluation | null): boolean {
   if (!evaluation?.recommendation) return false;
-  return EVALUATION_SECTIONS.every((section) => Number.isFinite(evaluation.scores[section.key]));
+  if (!evaluation.data.interviewerTechnical.trim() || !evaluation.data.interviewerAttitude.trim()) {
+    return false;
+  }
+
+  return EVALUATION_CRITERIA.every((criterion) => {
+    const criterionScore = evaluation.scores[criterion.key];
+    return (
+      criterionScore !== undefined &&
+      Number.isFinite(criterionScore.score) &&
+      criterionScore.notes.trim().length > 0
+    );
+  });
 }

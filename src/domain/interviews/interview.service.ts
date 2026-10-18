@@ -120,13 +120,14 @@ export async function unstartInterview(interviewId: string): Promise<void> {
 }
 
 /**
- * Saves the five-section evaluation on an open interview. Saving is allowed
- * as often as the committee likes while the member is in the queue — the
- * recommendation is stored separately and can be revised until the interview
- * is finished.
+ * Saves the evaluation (data section + eleven scored criteria) on an open
+ * interview. Saving is allowed as often as the committee likes while the
+ * member is in the queue — the recommendation is stored separately and can be
+ * revised until the interview is finished.
  */
 export async function saveInterviewEvaluation(input: {
   interviewId: string;
+  data: Record<string, unknown>;
   scores: Record<string, unknown>;
   recommendation: string;
   finalNotes?: string;
@@ -135,7 +136,7 @@ export async function saveInterviewEvaluation(input: {
 
   const total = await interviewRepo.rpcSaveInterviewEvaluation({
     interviewId: parsed.interviewId,
-    scores: parsed.scores,
+    evaluation: { data: parsed.data, scores: parsed.scores },
     recommendation: parsed.recommendation,
     finalNotes: parsed.finalNotes,
   });
@@ -153,7 +154,7 @@ async function assertEvaluationComplete(interviewId: string): Promise<void> {
   if (!row) throw new Error('Interview not found.');
   if (row.overall_total === null || row.recommendation === null) {
     throw new Error(
-      'Complete the evaluation — every section plus a recommendation — before finishing this interview.',
+      'Complete the evaluation — every criterion with a note, plus a recommendation — before finishing this interview.',
     );
   }
 }

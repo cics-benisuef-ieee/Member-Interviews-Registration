@@ -44,17 +44,17 @@ The people being interviewed.
 | transferred_from_id      | uuid → interviews | set when this row was created by a transfer                                     |
 | started_at / finished_at | timestamptz       |                                                                                 |
 | notes                    | text              | outcome notes                                                                   |
-| evaluation               | jsonb             | section key → score, from the five-section form                                 |
-| overall_total            | integer           | sum of the section scores (0–100)                                               |
-| recommendation           | text enum         | `STRONG_YES` \| `YES` \| `NO` \| `STRONG_NO` — stored separately from the score |
-| final_notes              | text              | evaluation notes                                                                |
+| evaluation               | jsonb             | `{ data, scores }` — interviewer fields + per-criterion `{ score, notes }`      |
+| overall_total            | integer           | sum of the eleven criterion scores (0–100)                                      |
+| recommendation           | text enum         | `ACCEPTED` \| `NEEDS_TRAINING` \| `REJECTED` — stored separately from the score |
+| final_notes              | text              | additional notes                                                                |
 | evaluation_updated_at    | timestamptz       | when the evaluation was last saved                                              |
 
 Constraints:
 
 - `unique (track_id, queue_day, queue_number)` — no duplicate queue numbers
 - `unique (member_id, track_id, queue_day)` — a member can't be queued twice in the same track on the same day
-- `overall_total between 0 and 100` — a total only comes from the five-section form (maximums live in `src/domain/interviews/evaluation.ts`)
+- `overall_total between 0 and 100` — a total only comes from the evaluation form (criterion maximums live in `src/domain/interviews/evaluation.ts`)
 
 ### `profiles`
 
@@ -82,36 +82,34 @@ WAITING ⇄ IN_INTERVIEW → PASSED | REJECTED | NEEDS_ANOTHER_TRACK
          (unstart)
 ```
 
-Any `WAITING` row can be started — skipping ahead is allowed and queue order stays as printed. An **unstart** (`IN_INTERVIEW → WAITING`) keeps the queue number and the evaluation saved so far; only the clock resets. Finishing (pass, reject, transfer) requires a **complete evaluation** — every section scored plus a recommendation — enforced in `complete_interview`.
+Any `WAITING` row can be started — skipping ahead is allowed and queue order stays as printed. An **unstart** (`IN_INTERVIEW → WAITING`) keeps the queue number and the evaluation saved so far; only the clock resets. Finishing (pass, reject, transfer) requires a **complete evaluation** — every criterion scored with a note, both interviewer fields, plus a recommendation — enforced in `complete_interview`.
 
 A transfer sets the source row to `NEEDS_ANOTHER_TRACK` and creates a **new** `WAITING` row in the target track for the same day, linked by `transferred_from_id`.
 
 ## The evaluation form (src/domain/interviews/evaluation.ts)
 
-One global five-section form for every track — 100 points in total:
+One global form for every track — 100 points in total, and every criterion needs a score _and_ a note:
 
-| Section                      | Max |
-| ---------------------------- | --- |
-| Technical & role knowledge   | 25  |
-| Communication skills         | 20  |
-| Teamwork & collaboration     | 20  |
-| Motivation & commitment      | 20  |
-| Problem solving & creativity | 15  |
+| Section          | Criteria                                                                                                                                  | Points      |
+| ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------- | ----------- |
+| Attitude         | Motivation & Enthusiasm, Teamwork & Collaboration, Commitment & Discipline, Communication & Confidence, Flexibility & Feedback Acceptance | 5 × 10 = 50 |
+| Technical Skills | Technical Knowledge, Analytical Thinking, Projects / Experience, Practical Application                                                    | 4 × 10 = 40 |
+| IEEE Knowledge   | Understanding IEEE Goals, Knowledge of Student Branch                                                                                     | 2 × 5 = 10  |
 
-The recommendation (`STRONG_YES` / `YES` / `NO` / `STRONG_NO`) is a separate judgement and never counted into the score. Saving is a draft action (allowed while the interview is open, as often as the committee likes); finishing is gated on completion, both in the app and in the database.
+The **Data** section records the two interviewers (technical and attitude); the member's name and position are autofilled read-only. The **Final evaluation** shows the computed total and the recommendation (`ACCEPTED` / `NEEDS_TRAINING` / `REJECTED`), which is a separate judgement and never counted into the score. Saving is a draft action (allowed while the interview is open, as often as the committee likes); finishing is gated on completion, both in the app and in the database.
 
 ## Queue functions (migrations/0005, 0007)
 
-| Function                                                        | Callable by              | Purpose                                         |
-| --------------------------------------------------------------- | ------------------------ | ----------------------------------------------- |
-| `register_member(track, name, phone, email, notes)`             | anyone (incl. anonymous) | creates member + queued interview atomically    |
-| `start_interview(id)`                                           | track board / admin      | `WAITING → IN_INTERVIEW` (any waiting row)      |
-| `unstart_interview(id)`                                         | track board / admin      | back to `WAITING`, keeping queue # + evaluation |
-| `save_interview_evaluation(id, scores, recommendation, notes?)` | track board / admin      | stores the five-section evaluation              |
-| `complete_interview(id, outcome, target_track?, notes?)`        | track board / admin      | pass, reject, or transfer (evaluation required) |
-| `get_queue_day()`                                               | anyone                   | today's date in the chapter timezone            |
-| `get_track_board(track)`                                        | track board / admin      | one track's full queue screen                   |
-| `get_tv_boards()`                                               | anyone (incl. anonymous) | summaries of the tracks marked `tv_visible`     |
+| Function                                                            | Callable by              | Purpose                                         |
+| ------------------------------------------------------------------- | ------------------------ | ----------------------------------------------- |
+| `register_member(track, name, phone, email, notes)`                 | anyone (incl. anonymous) | creates member + queued interview atomically    |
+| `start_interview(id)`                                               | track board / admin      | `WAITING → IN_INTERVIEW` (any waiting row)      |
+| `unstart_interview(id)`                                             | track board / admin      | back to `WAITING`, keeping queue # + evaluation |
+| `save_interview_evaluation(id, evaluation, recommendation, notes?)` | track board / admin      | stores the data section + scored criteria       |
+| `complete_interview(id, outcome, target_track?, notes?)`            | track board / admin      | pass, reject, or transfer (evaluation required) |
+| `get_queue_day()`                                                   | anyone                   | today's date in the chapter timezone            |
+| `get_track_board(track)`                                            | track board / admin      | one track's full queue screen                   |
+| `get_tv_boards()`                                                   | anyone (incl. anonymous) | summaries of the tracks marked `tv_visible`     |
 
 All run as `security definer` with their own authorization checks, and assign queue numbers under a row lock — concurrent registrations can never collide.
 

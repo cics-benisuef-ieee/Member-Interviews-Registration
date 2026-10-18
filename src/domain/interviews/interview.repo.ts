@@ -1,7 +1,13 @@
 import { createClient } from '@/lib/supabase/server';
-import type { InterviewRow } from '@/types/database';
+import type { InterviewRow, StoredEvaluation } from '@/types/database';
 import type { InterviewOutcome, InterviewStatus } from './interview.constants';
-import type { EvaluationScores, InterviewEvaluation, Recommendation } from './evaluation';
+import type {
+  EvaluationData,
+  EvaluationScores,
+  InterviewEvaluation,
+  PartialEvaluationScores,
+  Recommendation,
+} from './evaluation';
 import type { InterviewHistoryEntry, QueueEntry, TvBoard } from './interview.types';
 
 /** The current queue day (YYYY-MM-DD) in the chapter's timezone. */
@@ -29,7 +35,7 @@ const EVALUATION_SELECT =
   'evaluation, overall_total, recommendation, final_notes, evaluation_updated_at';
 
 interface EvaluationRow {
-  evaluation: Record<string, number> | null;
+  evaluation: StoredEvaluation | null;
   overall_total: number | null;
   recommendation: Recommendation | null;
   final_notes: string | null;
@@ -38,30 +44,30 @@ interface EvaluationRow {
 
 /**
  * Reshapes the evaluation columns into the domain object. A row with no
- * evaluation yet (nothing scored, no verdict) reads as null.
+ * evaluation yet (nothing saved, no verdict) reads as null.
  */
 function toEvaluation(row: EvaluationRow): InterviewEvaluation | null {
-  const hasAny =
-    row.evaluation !== null ||
-    row.overall_total !== null ||
-    row.recommendation !== null ||
-    row.final_notes !== null;
-  if (!hasAny) return null;
+  if (
+    row.evaluation === null &&
+    row.overall_total === null &&
+    row.recommendation === null &&
+    row.evaluation_updated_at === null
+  ) {
+    return null;
+  }
 
   return {
-    scores: (row.evaluation ?? {}) as Partial<EvaluationScores>,
+    data: {
+      interviewerTechnical: row.evaluation?.data?.interviewerTechnical ?? '',
+      interviewerAttitude: row.evaluation?.data?.interviewerAttitude ?? '',
+    },
+    scores: (row.evaluation?.scores ?? {}) as PartialEvaluationScores,
     total: row.overall_total ?? 0,
     recommendation: row.recommendation,
     finalNotes: row.final_notes,
     updatedAt: row.evaluation_updated_at,
   };
 }
-
-const QUEUE_ENTRY_SELECT = `
-  id, queue_number, status, started_at, finished_at, notes, transferred_from_id, member_id,
-  ${EVALUATION_SELECT},
-  members ( id, full_name, phone )
-`;
 
 interface QueueEntryRow extends EvaluationRow {
   id: string;
@@ -72,8 +78,14 @@ interface QueueEntryRow extends EvaluationRow {
   notes: string | null;
   transferred_from_id: string | null;
   member_id: string;
-  members: { id: string; full_name: string; phone: string | null } | null;
+  members: { id: string; full_name: string; phone: string | null; position: string | null } | null;
 }
+
+const QUEUE_ENTRY_SELECT = `
+  id, queue_number, status, started_at, finished_at, notes, transferred_from_id, member_id,
+  ${EVALUATION_SELECT},
+  members ( id, full_name, phone, position )
+`;
 
 function toQueueEntry(row: QueueEntryRow): QueueEntry {
   return {
@@ -89,6 +101,7 @@ function toQueueEntry(row: QueueEntryRow): QueueEntry {
       id: row.member_id,
       fullName: row.members?.full_name ?? 'Unknown member',
       phone: row.members?.phone ?? null,
+      position: row.members?.position ?? null,
     },
   };
 }
@@ -401,10 +414,10 @@ export async function rpcUnstartInterview(interviewId: string): Promise<void> {
   if (error) throw new Error(error.message);
 }
 
-/** Stores the five-section evaluation; returns the overall total saved. */
+/** Stores the evaluation (data + criterion scores); returns the overall total saved. */
 export async function rpcSaveInterviewEvaluation(params: {
   interviewId: string;
-  scores: EvaluationScores;
+  evaluation: { data: EvaluationData; scores: EvaluationScores };
   recommendation: Recommendation;
   finalNotes?: string;
 }): Promise<number> {
@@ -412,7 +425,7 @@ export async function rpcSaveInterviewEvaluation(params: {
 
   const { data, error } = await supabase.rpc('save_interview_evaluation', {
     p_interview_id: params.interviewId,
-    p_evaluation: params.scores,
+    p_evaluation: params.evaluation,
     p_recommendation: params.recommendation,
     p_final_notes: params.finalNotes ?? null,
   });

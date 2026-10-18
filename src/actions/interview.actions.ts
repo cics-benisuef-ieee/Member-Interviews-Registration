@@ -9,7 +9,7 @@ import {
   transferInterview,
   unstartInterview,
 } from '@/domain/interviews/interview.service';
-import { scoresFromFormData } from '@/domain/interviews/evaluation.schema';
+import { evaluationFromFormData } from '@/domain/interviews/evaluation.schema';
 
 /**
  * The same queue is rendered in three places: a track's own board, the board an
@@ -47,7 +47,7 @@ export interface EvaluationFormState {
   savedAt: string | null;
 }
 
-/** Saves the five-section evaluation for the member being interviewed. */
+/** Saves the evaluation (data section + criteria with notes) for the member being interviewed. */
 export async function saveInterviewEvaluationAction(
   _prevState: EvaluationFormState,
   formData: FormData,
@@ -55,9 +55,12 @@ export async function saveInterviewEvaluationAction(
   await requireBoardUser();
 
   try {
+    const { data, scores } = evaluationFromFormData(formData);
+
     const { total } = await saveInterviewEvaluation({
       interviewId: String(formData.get('interviewId') ?? ''),
-      scores: scoresFromFormData(formData),
+      data,
+      scores,
       recommendation: String(formData.get('recommendation') ?? ''),
       finalNotes: String(formData.get('finalNotes') ?? '') || undefined,
     });

@@ -11,7 +11,9 @@ Registers (public form or admin)
         │  called — skipping ahead is allowed, queue order stays as printed)
         ▼
    IN_INTERVIEW
-        │  committee fills the five-section evaluation (100 points)
+        │  committee fills the evaluation — Attitude 50, Technical
+        │  Skills 40, IEEE Knowledge 10 (every criterion scored with
+        │  a note) plus a recommendation
         │  + a recommendation — saving is a draft, as often as needed
         │  "Unstart" sends the member back to WAITING, keeping their
         │  place in the queue and the evaluation saved so far

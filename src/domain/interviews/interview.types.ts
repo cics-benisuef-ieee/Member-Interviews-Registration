@@ -12,12 +12,14 @@ export interface QueueEntry {
   transferredFromId: string | null;
   /** Present on transferred-in entries: the track the member came from. */
   sourceTrackName?: string;
-  /** The five-section evaluation saved so far; null until one is saved. */
+  /** The evaluation saved so far; null until one is saved. */
   evaluation: InterviewEvaluation | null;
   member: {
     id: string;
     fullName: string;
     phone: string | null;
+    /** Shown (read-only) in the evaluation form's Data section. */
+    position: string | null;
   };
 }
 

@@ -32,12 +32,21 @@ export interface InterviewRow {
   notes: string | null;
   started_at: string | null;
   finished_at: string | null;
-  /** Section key → score, as saved by the five-section evaluation form. */
-  evaluation: Record<string, number> | null;
+  /** The evaluation document: the data section plus per-criterion scores. */
+  evaluation: StoredEvaluation | null;
   overall_total: number | null;
-  recommendation: 'STRONG_YES' | 'YES' | 'NO' | 'STRONG_NO' | null;
+  recommendation: 'ACCEPTED' | 'NEEDS_TRAINING' | 'REJECTED' | null;
   final_notes: string | null;
   evaluation_updated_at: string | null;
+}
+
+/** The `interviews.evaluation` jsonb document written by the form. */
+export interface StoredEvaluation {
+  data?: {
+    interviewerTechnical?: string;
+    interviewerAttitude?: string;
+  };
+  scores?: Record<string, { score?: number; notes?: string }>;
 }
 
 export interface ProfileRow {
