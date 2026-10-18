@@ -96,9 +96,22 @@ export interface CriterionScore {
   notes: string;
 }
 
+/**
+ * One criterion as a work in progress — the shape a *draft* is saved in. Any
+ * mix is valid: only a score, only a note, or neither. It becomes a
+ * `CriterionScore` once both halves are there, which is what makes an
+ * evaluation complete.
+ */
+export interface CriterionDraft {
+  score?: number;
+  notes?: string;
+}
+
 /** Scores keyed by criterion; a complete form has every criterion present. */
 export type EvaluationScores = Record<EvaluationCriterionKey, CriterionScore>;
-export type PartialEvaluationScores = Partial<EvaluationScores>;
+
+/** Scores keyed by criterion as they are while the form is being filled in. */
+export type EvaluationDraftScores = Partial<Record<EvaluationCriterionKey, CriterionDraft>>;
 
 /** The Data section: who ran the interview. */
 export interface EvaluationData {
@@ -120,8 +133,8 @@ export interface InterviewEvaluation {
   /** Data section; empty strings while the form is being filled in. */
   data: EvaluationData;
   /** Per-criterion scores; partial while the form is being filled in. */
-  scores: PartialEvaluationScores;
-  /** Sum of the saved criterion scores. */
+  scores: EvaluationDraftScores;
+  /** Sum of the saved criterion scores; null on the row until the form is complete. */
   total: number;
   /** Null until the interviewer commits to a verdict. */
   recommendation: Recommendation | null;
@@ -130,22 +143,111 @@ export interface InterviewEvaluation {
 }
 
 /**
+ * The form's own view of an evaluation in progress: what has been typed, and
+ * whether that is enough to finish the interview. Both the live form (where
+ * the scores are raw strings) and the saved row are judged by this one rule.
+ */
+export interface EvaluationDraft {
+  data: Record<EvaluationDataKey, string>;
+  scores: EvaluationDraftScores;
+  recommendation: Recommendation | null;
+}
+
+/**
  * Every criterion scored with a note, both interviewer fields filled, and a
  * recommendation made — the gate for finishing an interview. Kept in step with
- * the same rule the database enforces in `save_interview_evaluation`.
+ * the same rule the database enforces in `complete_interview`: a draft may be
+ * missing anything, but finishing may not.
  */
-export function isEvaluationComplete(evaluation: InterviewEvaluation | null): boolean {
-  if (!evaluation?.recommendation) return false;
-  if (!evaluation.data.interviewerTechnical.trim() || !evaluation.data.interviewerAttitude.trim()) {
+export function isDraftComplete(draft: EvaluationDraft): boolean {
+  if (!draft.recommendation) return false;
+  if (!draft.data.interviewerTechnical.trim() || !draft.data.interviewerAttitude.trim()) {
     return false;
   }
 
   return EVALUATION_CRITERIA.every((criterion) => {
-    const criterionScore = evaluation.scores[criterion.key];
+    const criterionScore = draft.scores[criterion.key];
     return (
       criterionScore !== undefined &&
       Number.isFinite(criterionScore.score) &&
-      criterionScore.notes.trim().length > 0
+      (criterionScore.notes ?? '').trim().length > 0
     );
   });
+}
+
+/** The same completeness rule, read from the saved evaluation on the row. */
+export function isEvaluationComplete(evaluation: InterviewEvaluation | null): boolean {
+  if (!evaluation) return false;
+
+  return isDraftComplete({
+    data: evaluation.data,
+    scores: evaluation.scores,
+    recommendation: evaluation.recommendation,
+  });
+}
+
+/** A raw form score (a string) as a valid score, or undefined if empty/out of range. */
+export function parseScore(value: string, max: number): number | undefined {
+  const score = Number(value);
+  return value.trim() !== '' && Number.isInteger(score) && score >= 1 && score <= max
+    ? score
+    : undefined;
+}
+
+/** The running total of whatever has been scored so far — a draft's total. */
+export function scoresTotal(scores: EvaluationDraftScores): number {
+  return EVALUATION_CRITERIA.reduce((sum, criterion) => {
+    const score = scores[criterion.key]?.score;
+    return sum + (Number.isFinite(score) ? (score as number) : 0);
+  }, 0);
+}
+
+/** How much of one section is done: points scored, and criteria fully finished. */
+export function sectionProgress(
+  scores: EvaluationDraftScores,
+  section: EvaluationSection,
+): { points: number; done: number } {
+  return section.criteria.reduce(
+    (progress, criterion) => {
+      const criterionScore = scores[criterion.key];
+      const score = Number.isFinite(criterionScore?.score) ? (criterionScore?.score as number) : 0;
+      const finished =
+        Number.isFinite(criterionScore?.score) && (criterionScore?.notes ?? '').trim().length > 0;
+
+      return {
+        points: progress.points + score,
+        done: progress.done + (finished ? 1 : 0),
+      };
+    },
+    { points: 0, done: 0 },
+  );
+}
+
+/**
+ * What a draft still needs, in the words the form lists above its buttons —
+ * the same requirements `isDraftComplete` checks, spelled out one by one.
+ */
+export function missingRequirements(draft: EvaluationDraft): string[] {
+  const missing: string[] = [];
+
+  if (!draft.data.interviewerTechnical.trim()) missing.push('The technical interviewer’s name');
+  if (!draft.data.interviewerAttitude.trim()) missing.push('The attitude interviewer’s name');
+
+  const unscored = EVALUATION_CRITERIA.filter(
+    (criterion) => !Number.isFinite(draft.scores[criterion.key]?.score),
+  ).length;
+  if (unscored > 0) {
+    missing.push(`${unscored} ${unscored === 1 ? 'criterion' : 'criteria'} without a score`);
+  }
+
+  const notated = EVALUATION_CRITERIA.filter(
+    (criterion) => !(draft.scores[criterion.key]?.notes ?? '').trim(),
+  ).length;
+  if (notated > 0) {
+    missing.push(`${notated} ${notated === 1 ? 'note' : 'notes'} still to write`);
+  }
+
+  if (!draft.recommendation) missing.push('A recommendation');
+
+  return missing;
 }

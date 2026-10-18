@@ -1,12 +1,12 @@
 import { createClient } from '@/lib/supabase/server';
 import type { InterviewRow, StoredEvaluation } from '@/types/database';
 import type { InterviewOutcome, InterviewStatus } from './interview.constants';
-import type {
-  EvaluationData,
-  EvaluationScores,
-  InterviewEvaluation,
-  PartialEvaluationScores,
-  Recommendation,
+import {
+  scoresTotal,
+  type EvaluationData,
+  type EvaluationDraftScores,
+  type InterviewEvaluation,
+  type Recommendation,
 } from './evaluation';
 import type { InterviewHistoryEntry, QueueEntry, TvBoard } from './interview.types';
 
@@ -48,6 +48,9 @@ interface EvaluationRow {
 /**
  * Reshapes the evaluation columns into the domain object. A row with no
  * evaluation yet (nothing saved, no verdict) reads as null.
+ *
+ * `overall_total` is only written once the evaluation is complete, so a draft
+ * shows the running sum of whatever has been scored so far instead of a zero.
  */
 function toEvaluation(row: EvaluationRow): InterviewEvaluation | null {
   if (
@@ -59,13 +62,15 @@ function toEvaluation(row: EvaluationRow): InterviewEvaluation | null {
     return null;
   }
 
+  const scores = (row.evaluation?.scores ?? {}) as EvaluationDraftScores;
+
   return {
     data: {
       interviewerTechnical: row.evaluation?.data?.interviewerTechnical ?? '',
       interviewerAttitude: row.evaluation?.data?.interviewerAttitude ?? '',
     },
-    scores: (row.evaluation?.scores ?? {}) as PartialEvaluationScores,
-    total: row.overall_total ?? 0,
+    scores,
+    total: row.overall_total ?? scoresTotal(scores),
     recommendation: row.recommendation,
     finalNotes: row.final_notes,
     updatedAt: row.evaluation_updated_at,
@@ -425,11 +430,16 @@ export async function rpcUnstartInterview(interviewId: string): Promise<void> {
   if (error) throw new Error(error.message);
 }
 
-/** Stores the evaluation (data + criterion scores); returns the overall total saved. */
+/**
+ * Stores the evaluation as it stands — a complete form, or a draft with only
+ * some criteria filled in. A null recommendation means "no verdict chosen
+ * yet"; the returned total is the sum of the scores stored (partial while
+ * drafting — the row's `overall_total` stays null until the form is complete).
+ */
 export async function rpcSaveInterviewEvaluation(params: {
   interviewId: string;
-  evaluation: { data: EvaluationData; scores: EvaluationScores };
-  recommendation: Recommendation;
+  evaluation: { data: EvaluationData; scores: EvaluationDraftScores };
+  recommendation: Recommendation | null;
   finalNotes?: string;
 }): Promise<number> {
   const supabase = await createClient();

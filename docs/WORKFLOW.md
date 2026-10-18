@@ -13,8 +13,8 @@ Registers (public form or admin)
    IN_INTERVIEW
         │  committee fills the evaluation — Attitude 50, Technical
         │  Skills 40, IEEE Knowledge 10 (every criterion scored with
-        │  a note) plus a recommendation
-        │  + a recommendation — saving is a draft, as often as needed
+        │  a note) plus a recommendation; saving is a draft and may
+        │  be done as often as needed, even half-finished
         │  "Unstart" sends the member back to WAITING, keeping their
         │  place in the queue and the evaluation saved so far
         │

@@ -71,11 +71,20 @@ export async function unstartInterviewAction(
 
 export interface EvaluationFormState {
   error: string | null;
-  /** Shown after a successful save ("Saved at 14:35"). */
+  /** Shown after a successful save ("Draft saved — 43 points at 14:35"). */
   savedAt: string | null;
+  /** What the last successful save stored: a draft, or a complete evaluation. */
+  kind: 'draft' | 'complete' | null;
+  /** The points stored by the last successful save. */
+  total: number | null;
 }
 
-/** Saves the evaluation (data section + criteria with notes) for the member being interviewed. */
+/**
+ * Saves whatever the form holds — a complete evaluation, or a draft of one.
+ * Drafts are the normal way to work: nothing is lost when the board refreshes
+ * or the interview carries over, and finishing the interview stays locked in
+ * the database until the evaluation is complete.
+ */
 export async function saveInterviewEvaluationAction(
   _prevState: EvaluationFormState,
   formData: FormData,
@@ -85,23 +94,27 @@ export async function saveInterviewEvaluationAction(
   try {
     const { data, scores } = evaluationFromFormData(formData);
 
-    const { total } = await saveInterviewEvaluation({
+    const { total, complete } = await saveInterviewEvaluation({
       interviewId: String(formData.get('interviewId') ?? ''),
       data,
       scores,
-      recommendation: String(formData.get('recommendation') ?? ''),
+      recommendation: String(formData.get('recommendation') ?? '') || undefined,
       finalNotes: String(formData.get('finalNotes') ?? '') || undefined,
     });
 
     revalidateQueueViews();
     return {
       error: null,
-      savedAt: `Saved — ${total} points at ${new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}`,
+      savedAt: `${complete ? 'Saved' : 'Draft saved'} — ${total} points at ${new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}`,
+      kind: complete ? 'complete' : 'draft',
+      total,
     };
   } catch (error) {
     return {
       error: error instanceof Error ? error.message : 'Could not save the evaluation.',
       savedAt: null,
+      kind: null,
+      total: null,
     };
   }
 }

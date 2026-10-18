@@ -1,39 +1,43 @@
-# Update + verify 0007 (run in Supabase SQL editor)
+# Update + verify 0008 (run in Supabase SQL editor)
 
-Re-running `supabase/migrations/0007_evaluations_tv_and_position.sql` is the
-update: it is idempotent and replaces the evaluation functions and the
-recommendation constraint in place. Run the whole file, then these read-only
-checks.
+Re-running `supabase/migrations/0008_evaluation_drafts.sql` is the update: it
+is idempotent and replaces `save_interview_evaluation` in place (same
+signature, so 0007's grants still apply). Run the whole file, then these
+read-only checks.
 
 ```sql
--- 1) Recommendation values (expect ACCEPTED / NEEDS_TRAINING / REJECTED)
-SELECT pg_get_constraintdef(oid) AS constraint_def
-FROM pg_constraint
-WHERE conrelid = 'public.interviews'::regclass
-  AND conname = 'interviews_recommendation_check';
-
--- 2) Columns added by 0007 (expect 5 rows)
-SELECT column_name
-FROM information_schema.columns
-WHERE table_schema = 'public'
-  AND table_name = 'interviews'
-  AND column_name IN
-    ('evaluation', 'overall_total', 'recommendation', 'final_notes', 'evaluation_updated_at')
-ORDER BY column_name;
-
--- 3) The save function knows the new criteria (expect true)
+-- 1) The save function knows about drafts (expect true)
 SELECT (SELECT prosrc
         FROM pg_proc
         WHERE proname = 'save_interview_evaluation'
-          AND pronargs = 4) LIKE '%studentBranch%' AS uses_new_criteria;
+          AND pronargs = 4) LIKE '%v_complete%' AS accepts_drafts;
 
--- 4) Functions from 0007 exist (expect 3 rows)
-SELECT proname
+-- 2) Finishing is still gated on a complete evaluation (expect true)
+SELECT prosrc LIKE '%overall_total is null%'
+       AND prosrc LIKE '%recommendation is null%' AS finish_gate_intact
 FROM pg_proc
-WHERE proname IN ('save_interview_evaluation', 'unstart_interview', 'get_tv_boards')
-ORDER BY proname;
+WHERE proname = 'complete_interview';
+
+-- 3) The audit trail records whether a save was complete (expect true)
+SELECT (SELECT prosrc
+        FROM pg_proc
+        WHERE proname = 'save_interview_evaluation'
+          AND pronargs = 4) LIKE '%''complete'', v_complete%' AS audits_completeness;
 ```
 
-Criteria the checks are looking for: Attitude (5 criteria × 10 = 50),
-Technical Skills (4 × 10 = 40), IEEE Knowledge (2 × 5 = 10) — every criterion
-scored with a note; recommendation is `ACCEPTED` | `NEEDS_TRAINING` | `REJECTED`.
+What changed: `save_interview_evaluation` now accepts a **partial** evaluation
+— any criterion may be missing or carry only a score or only a note, the two
+interviewer fields may be empty, and the recommendation may be null. Whatever
+is provided is still range-checked per criterion.
+
+Completeness keeps its meaning: `overall_total` is written only when every
+criterion has a score and a note, both interviewers are named, and a
+recommendation exists. While the form is a draft the column stays **null**,
+which is exactly what `complete_interview` reads before refusing to finish an
+interview — so Pass / Reject / Transfer stay locked until the whole form is
+saved, unchanged.
+
+The board matches it: the form has a "Save draft" button plus an automatic
+copy in the browser (`localStorage`, keyed by interview id), the section
+headers show `n of m complete`, and the checklist above the buttons names
+whatever is still missing.

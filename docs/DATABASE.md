@@ -34,21 +34,21 @@ The people being interviewed.
 
 **One row per member × track × queue day** — the heart of the system.
 
-| Column                   | Type              | Notes                                                                           |
-| ------------------------ | ----------------- | ------------------------------------------------------------------------------- |
-| member_id                | uuid → members    |                                                                                 |
-| track_id                 | uuid → tracks     |                                                                                 |
-| queue_day                | date              | the day the queue belongs to                                                    |
-| queue_number             | integer           | per track per day, starts at 1                                                  |
-| status                   | text enum         | see below                                                                       |
-| transferred_from_id      | uuid → interviews | set when this row was created by a transfer                                     |
-| started_at / finished_at | timestamptz       |                                                                                 |
-| notes                    | text              | outcome notes                                                                   |
-| evaluation               | jsonb             | `{ data, scores }` — interviewer fields + per-criterion `{ score, notes }`      |
-| overall_total            | integer           | sum of the eleven criterion scores (0–100)                                      |
-| recommendation           | text enum         | `ACCEPTED` \| `NEEDS_TRAINING` \| `REJECTED` — stored separately from the score |
-| final_notes              | text              | additional notes                                                                |
-| evaluation_updated_at    | timestamptz       | when the evaluation was last saved                                              |
+| Column                   | Type              | Notes                                                                                                 |
+| ------------------------ | ----------------- | ----------------------------------------------------------------------------------------------------- |
+| member_id                | uuid → members    |                                                                                                       |
+| track_id                 | uuid → tracks     |                                                                                                       |
+| queue_day                | date              | the day the queue belongs to                                                                          |
+| queue_number             | integer           | per track per day, starts at 1                                                                        |
+| status                   | text enum         | see below                                                                                             |
+| transferred_from_id      | uuid → interviews | set when this row was created by a transfer                                                           |
+| started_at / finished_at | timestamptz       |                                                                                                       |
+| notes                    | text              | outcome notes                                                                                         |
+| evaluation               | jsonb             | `{ data, scores }` — interviewer fields + per-criterion `{ score, notes }`; partial saves are drafts  |
+| overall_total            | integer           | sum of the eleven criterion scores (0–100) — **null while the evaluation is a draft**                 |
+| recommendation           | text enum         | `ACCEPTED` \| `NEEDS_TRAINING` \| `REJECTED` — stored separately from the score; null while undecided |
+| final_notes              | text              | additional notes                                                                                      |
+| evaluation_updated_at    | timestamptz       | when the evaluation was last saved                                                                    |
 
 Constraints:
 
@@ -96,20 +96,22 @@ One global form for every track — 100 points in total, and every criterion nee
 | Technical Skills | Technical Knowledge, Analytical Thinking, Projects / Experience, Practical Application                                                    | 4 × 10 = 40 |
 | IEEE Knowledge   | Understanding IEEE Goals, Knowledge of Student Branch                                                                                     | 2 × 5 = 10  |
 
-The **Data** section records the two interviewers (technical and attitude); the member's name and position are autofilled read-only. The **Final evaluation** shows the computed total and the recommendation (`ACCEPTED` / `NEEDS_TRAINING` / `REJECTED`), which is a separate judgement and never counted into the score. Saving is a draft action (allowed while the interview is open, as often as the committee likes); finishing is gated on completion, both in the app and in the database.
+The **Data** section records the two interviewers (technical and attitude); the member's name and position are autofilled read-only. The **Final evaluation** shows the computed total and the recommendation (`ACCEPTED` / `NEEDS_TRAINING` / `REJECTED`), which is a separate judgement and never counted into the score.
 
-## Queue functions (migrations/0005, 0007)
+Saving is a **draft action** (allowed while the interview is open, as often as the committee likes, with any part of the form filled in) — "Save draft" stores whatever exists so far and leaves `overall_total` null, while "Save evaluation" validates the finished form. The board also keeps an unsaved copy in the browser (`localStorage`, keyed by interview id) so a refresh, a reload, or navigating away and back never clears work in progress. Finishing is gated on completion, both in the app and in the database: a draft cannot end an interview.
 
-| Function                                                            | Callable by              | Purpose                                         |
-| ------------------------------------------------------------------- | ------------------------ | ----------------------------------------------- |
-| `register_member(track, name, phone, email, notes)`                 | anyone (incl. anonymous) | creates member + queued interview atomically    |
-| `start_interview(id)`                                               | track board / admin      | `WAITING → IN_INTERVIEW` (any waiting row)      |
-| `unstart_interview(id)`                                             | track board / admin      | back to `WAITING`, keeping queue # + evaluation |
-| `save_interview_evaluation(id, evaluation, recommendation, notes?)` | track board / admin      | stores the data section + scored criteria       |
-| `complete_interview(id, outcome, target_track?, notes?)`            | track board / admin      | pass, reject, or transfer (evaluation required) |
-| `get_queue_day()`                                                   | anyone                   | today's date in the chapter timezone            |
-| `get_track_board(track)`                                            | track board / admin      | one track's full queue screen                   |
-| `get_tv_boards()`                                                   | anyone (incl. anonymous) | summaries of the tracks marked `tv_visible`     |
+## Queue functions (migrations/0005, 0007, 0008)
+
+| Function                                                            | Callable by              | Purpose                                                                       |
+| ------------------------------------------------------------------- | ------------------------ | ----------------------------------------------------------------------------- |
+| `register_member(track, name, phone, email, notes)`                 | anyone (incl. anonymous) | creates member + queued interview atomically                                  |
+| `start_interview(id)`                                               | track board / admin      | `WAITING → IN_INTERVIEW` (any waiting row)                                    |
+| `unstart_interview(id)`                                             | track board / admin      | back to `WAITING`, keeping queue # + evaluation                               |
+| `save_interview_evaluation(id, evaluation, recommendation, notes?)` | track board / admin      | stores the data section + scored criteria (a partial form is kept as a draft) |
+| `complete_interview(id, outcome, target_track?, notes?)`            | track board / admin      | pass, reject, or transfer (evaluation required)                               |
+| `get_queue_day()`                                                   | anyone                   | today's date in the chapter timezone                                          |
+| `get_track_board(track)`                                            | track board / admin      | one track's full queue screen                                                 |
+| `get_tv_boards()`                                                   | anyone (incl. anonymous) | summaries of the tracks marked `tv_visible`                                   |
 
 All run as `security definer` with their own authorization checks, and assign queue numbers under a row lock — concurrent registrations can never collide.
 

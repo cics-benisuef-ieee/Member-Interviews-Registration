@@ -1,6 +1,7 @@
 import * as trackRepo from '@/domain/tracks/track.repo';
 import * as trackService from '@/domain/tracks/track.service';
 import { FINISHED_STATUSES, isFinishedStatus, type InterviewOutcome } from './interview.constants';
+import { isDraftComplete } from './evaluation';
 import { evaluationInputSchema } from './evaluation.schema';
 import * as interviewRepo from './interview.repo';
 import { memberRegistrationSchema, transferInputSchema } from './interview.schema';
@@ -120,28 +121,38 @@ export async function unstartInterview(interviewId: string): Promise<void> {
 }
 
 /**
- * Saves the evaluation (data section + eleven scored criteria) on an open
- * interview. Saving is allowed as often as the committee likes while the
- * member is in the queue — the recommendation is stored separately and can be
- * revised until the interview is finished.
+ * Saves the evaluation (data section + scored criteria) on an open interview,
+ * as often as the committee likes: a draft may hold anything, a complete save
+ * must hold everything. The recommendation is stored separately from the
+ * score and can be revised until the interview is finished.
+ *
+ * `complete` says which of the two was stored — the same rule
+ * `complete_interview` enforces before it lets the interview end, so the form
+ * can tell the committee when Pass, Reject and Transfer unlock.
  */
 export async function saveInterviewEvaluation(input: {
   interviewId: string;
   data: Record<string, unknown>;
   scores: Record<string, unknown>;
-  recommendation: string;
+  recommendation?: string;
   finalNotes?: string;
-}): Promise<{ interviewId: string; total: number }> {
+}): Promise<{ interviewId: string; total: number; complete: boolean }> {
   const parsed = evaluationInputSchema.parse(input);
+
+  const complete = isDraftComplete({
+    data: parsed.data,
+    scores: parsed.scores,
+    recommendation: parsed.recommendation ?? null,
+  });
 
   const total = await interviewRepo.rpcSaveInterviewEvaluation({
     interviewId: parsed.interviewId,
     evaluation: { data: parsed.data, scores: parsed.scores },
-    recommendation: parsed.recommendation,
+    recommendation: parsed.recommendation ?? null,
     finalNotes: parsed.finalNotes,
   });
 
-  return { interviewId: parsed.interviewId, total };
+  return { interviewId: parsed.interviewId, total, complete };
 }
 
 /**

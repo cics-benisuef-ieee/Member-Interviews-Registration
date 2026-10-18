@@ -13,31 +13,151 @@ import {
   EVALUATION_SECTIONS,
   RECOMMENDATIONS,
   RECOMMENDATION_LABELS,
+  isDraftComplete,
   isEvaluationComplete,
+  missingRequirements,
+  parseScore,
+  scoresTotal,
+  sectionProgress,
   type EvaluationCriterion,
   type EvaluationCriterionKey,
+  type EvaluationDataKey,
+  type EvaluationDraft,
+  type EvaluationDraftScores,
+  type Recommendation,
 } from '@/domain/interviews/evaluation';
 import { notesFieldName, scoreFieldName } from '@/domain/interviews/evaluation.schema';
 import type { QueueEntry } from '@/domain/interviews/interview.types';
-import { ClipboardCheck } from 'lucide-react';
-import { useActionState, useState, type ReactNode } from 'react';
+import { Circle, ClipboardCheck } from 'lucide-react';
+import { useActionState, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 
-const EMPTY_STATE: EvaluationFormState = { error: null, savedAt: null };
+const EMPTY_STATE: EvaluationFormState = { error: null, savedAt: null, kind: null, total: null };
 
-function initialScores(entry: QueueEntry): Record<EvaluationCriterionKey, string> {
-  return Object.fromEntries(
-    EVALUATION_CRITERIA.map((criterion) => [
-      criterion.key,
-      entry.evaluation?.scores[criterion.key]?.score?.toString() ?? '',
-    ]),
-  ) as Record<EvaluationCriterionKey, string>;
+/** How long the local draft waits after the last keystroke before writing. */
+const AUTOSAVE_DELAY_MS = 800;
+
+/** Everything the form can hold — the shape both the local draft and the state use. */
+interface FormValues {
+  data: Record<EvaluationDataKey, string>;
+  scores: Record<EvaluationCriterionKey, string>;
+  notes: Record<EvaluationCriterionKey, string>;
+  recommendation: string;
+  finalNotes: string;
 }
 
-function criteriaTotal(
-  scores: Record<EvaluationCriterionKey, string>,
-  criteria: readonly EvaluationCriterion[],
-): number {
-  return criteria.reduce((sum, criterion) => sum + (Number(scores[criterion.key]) || 0), 0);
+/** The saved evaluation on the row, as the fields would show it with no local work. */
+function serverValues(entry: QueueEntry): FormValues {
+  const evaluation = entry.evaluation;
+
+  return {
+    data: {
+      interviewerTechnical: evaluation?.data.interviewerTechnical ?? '',
+      interviewerAttitude: evaluation?.data.interviewerAttitude ?? '',
+    },
+    scores: Object.fromEntries(
+      EVALUATION_CRITERIA.map((criterion) => [
+        criterion.key,
+        evaluation?.scores[criterion.key]?.score?.toString() ?? '',
+      ]),
+    ) as Record<EvaluationCriterionKey, string>,
+    notes: Object.fromEntries(
+      EVALUATION_CRITERIA.map((criterion) => [
+        criterion.key,
+        evaluation?.scores[criterion.key]?.notes ?? '',
+      ]),
+    ) as Record<EvaluationCriterionKey, string>,
+    recommendation: evaluation?.recommendation ?? '',
+    finalNotes: evaluation?.finalNotes ?? '',
+  };
+}
+
+function valuesEqual(a: FormValues, b: FormValues): boolean {
+  return (
+    a.data.interviewerTechnical === b.data.interviewerTechnical &&
+    a.data.interviewerAttitude === b.data.interviewerAttitude &&
+    a.recommendation === b.recommendation &&
+    a.finalNotes === b.finalNotes &&
+    EVALUATION_CRITERIA.every(
+      (criterion) =>
+        a.scores[criterion.key] === b.scores[criterion.key] &&
+        a.notes[criterion.key] === b.notes[criterion.key],
+    )
+  );
+}
+
+function draftKey(interviewId: string): string {
+  return `ieee-evaluation-draft:${interviewId}`;
+}
+
+/** The unsaved work kept for one interview, or null if there is none. */
+function readDraft(
+  interviewId: string,
+): { savedAt: string; values: Record<string, unknown> } | null {
+  try {
+    const raw = window.localStorage.getItem(draftKey(interviewId));
+    const parsed: unknown = raw ? JSON.parse(raw) : null;
+    if (typeof parsed !== 'object' || parsed === null) return null;
+
+    const draft = parsed as { savedAt?: unknown; values?: unknown };
+    if (
+      typeof draft.savedAt !== 'string' ||
+      typeof draft.values !== 'object' ||
+      draft.values === null
+    ) {
+      return null;
+    }
+
+    return { savedAt: draft.savedAt, values: draft.values as Record<string, unknown> };
+  } catch {
+    // Storage blocked or unreadable — the server copy stands on its own.
+    return null;
+  }
+}
+
+function draftString(value: unknown, fallback: string): string {
+  return typeof value === 'string' ? value : fallback;
+}
+
+function isRecommendation(value: unknown): value is Recommendation {
+  return RECOMMENDATIONS.includes(value as Recommendation);
+}
+
+/**
+ * Layers a local draft over the server copy: anything the draft holds wins,
+ * anything it never recorded keeps the saved value. Old or hand-edited drafts
+ * cannot put junk in the fields — every value is re-checked on the way in.
+ */
+function mergeDraft(base: FormValues, draft: Record<string, unknown>): FormValues {
+  const data = (draft.data ?? {}) as Record<string, unknown>;
+  const scores = (draft.scores ?? {}) as Record<string, unknown>;
+  const notes = (draft.notes ?? {}) as Record<string, unknown>;
+
+  return {
+    data: {
+      interviewerTechnical: draftString(data.interviewerTechnical, base.data.interviewerTechnical),
+      interviewerAttitude: draftString(data.interviewerAttitude, base.data.interviewerAttitude),
+    },
+    scores: Object.fromEntries(
+      EVALUATION_CRITERIA.map((criterion) => [
+        criterion.key,
+        draftString(scores[criterion.key], base.scores[criterion.key]),
+      ]),
+    ) as Record<EvaluationCriterionKey, string>,
+    notes: Object.fromEntries(
+      EVALUATION_CRITERIA.map((criterion) => [
+        criterion.key,
+        draftString(notes[criterion.key], base.notes[criterion.key]),
+      ]),
+    ) as Record<EvaluationCriterionKey, string>,
+    recommendation: isRecommendation(draft.recommendation)
+      ? draft.recommendation
+      : base.recommendation,
+    finalNotes: draftString(draft.finalNotes, base.finalNotes),
+  };
+}
+
+function formatClock(iso: string): string {
+  return new Date(iso).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
 }
 
 /**
@@ -46,15 +166,106 @@ function criteriaTotal(
  * and the Final evaluation with the computed total and a recommendation that is
  * stored separately from the score.
  *
- * Every criterion needs both a score and a note. Pass, reject, and transfer
- * unlock only once the whole form is complete.
+ * Saving never demands the whole form: "Save draft" stores whatever is filled
+ * in so far (in the database and, automatically, in this browser), while "Save
+ * evaluation" validates everything the finished form needs. Pass, reject and
+ * transfer stay locked until the *saved* evaluation is complete — the same
+ * gate the database enforces — and the checklist above the buttons names
+ * whatever is still missing.
  */
 export function EvaluationForm({ entry }: { entry: QueueEntry }) {
   const [state, formAction, pending] = useActionState(saveInterviewEvaluationAction, EMPTY_STATE);
-  const [scores, setScores] = useState(() => initialScores(entry));
+  const [values, setValues] = useState<FormValues>(() => serverValues(entry));
+  const [restoredDraftAt, setRestoredDraftAt] = useState<string | null>(null);
+  const [localDraftAt, setLocalDraftAt] = useState<string | null>(null);
 
-  const liveTotal = criteriaTotal(scores, EVALUATION_CRITERIA);
-  const complete = isEvaluationComplete(entry.evaluation);
+  const savedValues = serverValues(entry);
+
+  // The latest server copy, read through a ref so the autosave timer depends
+  // only on what was typed — a board refresh every 10s must never restart it.
+  const savedValuesRef = useRef(savedValues);
+  useEffect(() => {
+    savedValuesRef.current = savedValues;
+  }, [savedValues]);
+
+  // One restore per mount: local work newer than the saved evaluation wins,
+  // so a refresh, a navigation away and back, or an unstart followed by a
+  // start never wipes what was typed. A server copy saved later (another
+  // committee member finishing the form from their machine) beats the draft.
+  useEffect(() => {
+    const draft = readDraft(entry.id);
+    if (!draft) return;
+
+    const draftSavedAt = Date.parse(draft.savedAt);
+    const serverSavedAt = Date.parse(entry.evaluation?.updatedAt ?? '');
+
+    if (Number.isFinite(serverSavedAt) && draftSavedAt <= serverSavedAt) {
+      window.localStorage.removeItem(draftKey(entry.id));
+      return;
+    }
+
+    setValues((previous) => mergeDraft(previous, draft.values));
+    setLocalDraftAt(draft.savedAt);
+    setRestoredDraftAt(draft.savedAt);
+  }, [entry.id, entry.evaluation?.updatedAt]);
+
+  // The draft writes itself shortly after the last keystroke, and forgets
+  // itself again once the fields match what the server already holds.
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      try {
+        if (valuesEqual(values, savedValuesRef.current)) {
+          window.localStorage.removeItem(draftKey(entry.id));
+          setLocalDraftAt(null);
+          return;
+        }
+
+        const savedAt = new Date().toISOString();
+        window.localStorage.setItem(draftKey(entry.id), JSON.stringify({ savedAt, values }));
+        setLocalDraftAt(savedAt);
+      } catch {
+        // Storage full or blocked — "Save draft" is the safety net.
+      }
+    }, AUTOSAVE_DELAY_MS);
+
+    return () => window.clearTimeout(timer);
+  }, [entry.id, values]);
+
+  const liveScores = useMemo(
+    () =>
+      Object.fromEntries(
+        EVALUATION_CRITERIA.map((criterion) => [
+          criterion.key,
+          {
+            score: parseScore(values.scores[criterion.key], criterion.max),
+            notes: values.notes[criterion.key].trim() || undefined,
+          },
+        ]),
+      ) as EvaluationDraftScores,
+    [values],
+  );
+
+  const liveDraft: EvaluationDraft = {
+    data: values.data,
+    scores: liveScores,
+    recommendation: values.recommendation ? (values.recommendation as Recommendation) : null,
+  };
+
+  const liveTotal = scoresTotal(liveScores);
+  const liveComplete = isDraftComplete(liveDraft);
+  const missing = missingRequirements(liveDraft);
+  const scoredCount = EVALUATION_CRITERIA.filter((criterion) =>
+    Number.isFinite(liveScores[criterion.key]?.score),
+  ).length;
+  const savedComplete = isEvaluationComplete(entry.evaluation);
+  const dirty = !valuesEqual(values, savedValues);
+
+  const setData = (key: EvaluationDataKey, value: string) =>
+    setValues((previous) => ({ ...previous, data: { ...previous.data, [key]: value } }));
+  const setScore = (key: EvaluationCriterionKey, value: string) =>
+    setValues((previous) => ({ ...previous, scores: { ...previous.scores, [key]: value } }));
+  const setNote = (key: EvaluationCriterionKey, value: string) =>
+    setValues((previous) => ({ ...previous, notes: { ...previous.notes, [key]: value } }));
 
   return (
     <form action={formAction} className="space-y-5">
@@ -67,12 +278,16 @@ export function EvaluationForm({ entry }: { entry: QueueEntry }) {
         </p>
         <p
           className={`rounded-full px-3 py-0.5 text-sm font-bold ${
-            complete ? 'bg-ieee-green-dark/10 text-ieee-green-dark' : 'bg-surface text-ieee-gray'
+            liveComplete
+              ? 'bg-ieee-green-dark/10 text-ieee-green-dark'
+              : 'bg-surface text-ieee-gray'
           }`}
           aria-live="polite"
         >
           {liveTotal} / {EVALUATION_MAX_TOTAL}
-          {complete && ' · complete'}
+          {liveComplete
+            ? ' · complete'
+            : ` · ${scoredCount} of ${EVALUATION_CRITERIA.length} scored`}
         </p>
       </div>
 
@@ -88,10 +303,11 @@ export function EvaluationForm({ entry }: { entry: QueueEntry }) {
             <Input value={entry.member.position ?? '—'} readOnly disabled />
           </Field>
           {EVALUATION_DATA_FIELDS.map((field) => (
-            <Field key={field.key} label={field.label} hint="Required">
+            <Field key={field.key} label={field.label} hint="Required to finish">
               <Input
                 name={field.key}
-                defaultValue={entry.evaluation?.data[field.key] ?? ''}
+                value={values.data[field.key]}
+                onChange={(event) => setData(field.key, event.target.value)}
                 required
               />
             </Field>
@@ -99,27 +315,30 @@ export function EvaluationForm({ entry }: { entry: QueueEntry }) {
         </div>
       </FormSection>
 
-      {EVALUATION_SECTIONS.map((section, index) => (
-        <FormSection
-          key={section.key}
-          title={`${index + 2} · ${section.label}`}
-          hint={`${criteriaTotal(scores, section.criteria)} / ${section.max} points`}
-        >
-          <div className="space-y-3">
-            {section.criteria.map((criterion) => (
-              <CriterionRow
-                key={criterion.key}
-                criterion={criterion}
-                score={scores[criterion.key]}
-                savedNotes={entry.evaluation?.scores[criterion.key]?.notes ?? ''}
-                onScoreChange={(value) =>
-                  setScores((previous) => ({ ...previous, [criterion.key]: value }))
-                }
-              />
-            ))}
-          </div>
-        </FormSection>
-      ))}
+      {EVALUATION_SECTIONS.map((section, index) => {
+        const progress = sectionProgress(liveScores, section);
+
+        return (
+          <FormSection
+            key={section.key}
+            title={`${index + 2} · ${section.label}`}
+            hint={`${progress.done} of ${section.criteria.length} complete · ${progress.points} / ${section.max} points`}
+          >
+            <div className="space-y-3">
+              {section.criteria.map((criterion) => (
+                <CriterionRow
+                  key={criterion.key}
+                  criterion={criterion}
+                  score={values.scores[criterion.key]}
+                  notes={values.notes[criterion.key]}
+                  onScoreChange={(value) => setScore(criterion.key, value)}
+                  onNotesChange={(value) => setNote(criterion.key, value)}
+                />
+              ))}
+            </div>
+          </FormSection>
+        );
+      })}
 
       <FormSection
         title="5 · Final evaluation"
@@ -133,7 +352,10 @@ export function EvaluationForm({ entry }: { entry: QueueEntry }) {
             <Select
               name="recommendation"
               required
-              defaultValue={entry.evaluation?.recommendation ?? ''}
+              value={values.recommendation}
+              onChange={(event) =>
+                setValues((previous) => ({ ...previous, recommendation: event.target.value }))
+              }
             >
               <option value="" disabled>
                 Choose…
@@ -149,7 +371,10 @@ export function EvaluationForm({ entry }: { entry: QueueEntry }) {
         <Field label="Additional notes">
           <TextArea
             name="finalNotes"
-            defaultValue={entry.evaluation?.finalNotes ?? ''}
+            value={values.finalNotes}
+            onChange={(event) =>
+              setValues((previous) => ({ ...previous, finalNotes: event.target.value }))
+            }
             placeholder="Anything the record should keep — strengths, doubts, follow-ups."
           />
         </Field>
@@ -158,22 +383,54 @@ export function EvaluationForm({ entry }: { entry: QueueEntry }) {
       <FormError message={state.error} />
       <FormSuccess message={state.savedAt} />
 
+      {restoredDraftAt && (
+        <p className="rounded-lg bg-surface px-3 py-2 text-xs text-ieee-gray">
+          Unsaved work from {formatClock(restoredDraftAt)} was restored from this browser.
+        </p>
+      )}
+
+      {!liveComplete ? (
+        <div className="rounded-xl border border-hairline bg-surface/60 p-3">
+          <p className="text-xs font-bold tracking-widest text-ieee-blue uppercase">
+            Still needed before Pass unlocks
+          </p>
+          <ul className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1 text-xs text-ieee-gray">
+            {missing.map((item) => (
+              <li key={item} className="inline-flex items-center gap-1.5">
+                <Circle className="h-2.5 w-2.5 shrink-0 fill-current" />
+                {item}
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : (
+        !savedComplete && (
+          <p className="rounded-lg bg-ieee-orange-dark/10 px-3 py-2 text-sm font-semibold text-ieee-orange-dark">
+            Everything is filled in — save the evaluation to unlock Pass, Reject and Transfer.
+          </p>
+        )
+      )}
+
       <div className="flex flex-wrap items-center gap-3">
-        <Button type="submit" variant="secondary" disabled={pending}>
+        <Button type="submit" formNoValidate variant="secondary" disabled={pending}>
+          {pending ? 'Saving…' : 'Save draft'}
+        </Button>
+        <Button type="submit" variant="accent" disabled={pending}>
           {pending ? 'Saving…' : 'Save evaluation'}
         </Button>
-        {!complete && (
-          <p className="text-xs text-ieee-gray">
-            Pass, reject, and transfer unlock once every criterion has a score and a note, both
-            interviewer fields are filled, and a recommendation is chosen.
-          </p>
-        )}
+        <p className="text-xs text-ieee-gray">
+          {dirty
+            ? `Unsaved changes are kept in this browser automatically${
+                localDraftAt ? ` (last at ${formatClock(localDraftAt)})` : ''
+              }.`
+            : 'A draft may be saved at any point — the criteria are only required to finish the interview.'}
+        </p>
       </div>
     </form>
   );
 }
 
-/** One numbered section of the form, with its running score in the header. */
+/** One numbered section of the form, with its running progress in the header. */
 function FormSection({
   title,
   hint,
@@ -192,17 +449,19 @@ function FormSection({
   );
 }
 
-/** One scored line: the criterion's score box and its required note. */
+/** One scored line: the criterion's score box and its note. */
 function CriterionRow({
   criterion,
   score,
-  savedNotes,
+  notes,
   onScoreChange,
+  onNotesChange,
 }: {
   criterion: EvaluationCriterion;
   score: string;
-  savedNotes: string;
+  notes: string;
   onScoreChange: (value: string) => void;
+  onNotesChange: (value: string) => void;
 }) {
   const scoreId = scoreFieldName(criterion.key);
 
@@ -232,8 +491,9 @@ function CriterionRow({
           name={notesFieldName(criterion.key)}
           rows={2}
           required
-          defaultValue={savedNotes}
-          placeholder="Notes (required)"
+          value={notes}
+          onChange={(event) => onNotesChange(event.target.value)}
+          placeholder="Notes (required to finish)"
           aria-label={`${criterion.label} notes`}
         />
       </div>

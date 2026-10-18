@@ -32,7 +32,7 @@ Seeded A→Z: Agentic AI · Back-end Development · Data Analysis · Embedded Sy
 ### 1. Create the Supabase project
 
 1. Create a free project at [supabase.com](https://supabase.com).
-2. Open **SQL Editor** and run the files in `supabase/migrations/` in order (`0001` → `0007`).
+2. Open **SQL Editor** and run the files in `supabase/migrations/` in order (`0001` → `0008`).
 3. Open **Project Settings → API Keys** and copy the project URL, the **publishable** key, and a **secret** key. Supabase is retiring the legacy `anon` / `service_role` keys, so create/use the publishable-and-secret pair.
 
 ### 2. Configure the environment

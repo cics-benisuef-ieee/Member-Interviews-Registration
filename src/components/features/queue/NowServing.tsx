@@ -30,9 +30,11 @@ export function NowServing({ entry, availableTracks }: NowServingProps) {
             {evaluation && (
               <Badge tone={complete ? 'passed' : 'waiting'}>
                 {evaluation.total}/100
-                {complete && evaluation.recommendation
-                  ? ` · ${RECOMMENDATION_LABELS[evaluation.recommendation]}`
-                  : ''}
+                {complete
+                  ? evaluation.recommendation
+                    ? ` · ${RECOMMENDATION_LABELS[evaluation.recommendation]}`
+                    : ''
+                  : ' · draft'}
               </Badge>
             )}
             <span>Started {formatTime(entry.startedAt)}</span>

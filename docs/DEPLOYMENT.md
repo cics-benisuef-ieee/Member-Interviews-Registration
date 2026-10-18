@@ -5,7 +5,7 @@ Everything runs on free tiers: Supabase (database + auth) and Vercel (hosting).
 ## 1. Supabase
 
 1. Create a free project at [supabase.com](https://supabase.com) (choose a region near your chapter).
-2. **SQL Editor → New query**: run each file in `supabase/migrations/` in order (`0001` … `0005`). Each should report `Success`.
+2. **SQL Editor → New query**: run each file in `supabase/migrations/` in order (`0001` … `0008`). Each should report `Success`.
 3. **Project Settings → API Keys**: create the **publishable and secret API keys** (the legacy `anon` / `service_role` keys are being retired by end of 2026). Copy the project URL, the publishable key, and a secret key — give the secret key a name like `seed-and-admin` so it can be rotated independently.
 4. On your machine, fill `.env` with those values, then run `npm run db:seed`.
 5. Copy the printed credentials somewhere safe — the admin login and one login per track.
