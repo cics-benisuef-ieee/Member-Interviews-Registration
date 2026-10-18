@@ -6,8 +6,10 @@ import {
   type TrackFormState,
 } from '@/actions/track.actions';
 import { Badge } from '@/components/ui/Badge';
+import { buttonClasses } from '@/components/ui/Button';
 import type { TrackWithLogin } from '@/domain/tracks/track.types';
-import { KeyRound } from 'lucide-react';
+import { KeyRound, LayoutDashboard } from 'lucide-react';
+import Link from 'next/link';
 import { useActionState } from 'react';
 
 /** One track in the admin table: toggle active + reset its login password. */
@@ -30,12 +32,17 @@ export function TrackRow({ track }: { track: TrackWithLogin }) {
       </td>
       <td className="px-5 py-3">
         <div className="flex flex-wrap items-center justify-end gap-2">
+          <Link href={`/admin/tracks/${track.id}`} className={buttonClasses('secondary', 'sm')}>
+            <LayoutDashboard className="h-3.5 w-3.5" />
+            Board
+          </Link>
+
           <form action={setTrackActiveAction}>
             <input type="hidden" name="trackId" value={track.id} />
             <input type="hidden" name="isActive" value={String(!track.isActive)} />
             <button
               type="submit"
-              className="rounded-lg border border-hairline px-3 py-1.5 text-sm font-semibold text-ieee-gray transition-colors hover:border-ieee-blue hover:text-ieee-blue"
+              className="rounded-xl border border-hairline px-3 py-1.5 text-sm font-semibold text-ieee-gray transition-colors hover:border-ieee-blue hover:text-ieee-blue"
             >
               {track.isActive ? 'Disable' : 'Enable'}
             </button>
@@ -46,7 +53,7 @@ export function TrackRow({ track }: { track: TrackWithLogin }) {
             <button
               type="submit"
               disabled={pending}
-              className="inline-flex items-center gap-1 rounded-lg border border-hairline px-3 py-1.5 text-sm font-semibold text-ieee-gray transition-colors hover:border-ieee-blue hover:text-ieee-blue disabled:opacity-50"
+              className="inline-flex items-center gap-1 rounded-xl border border-hairline px-3 py-1.5 text-sm font-semibold text-ieee-gray transition-colors hover:border-ieee-blue hover:text-ieee-blue disabled:opacity-50"
             >
               <KeyRound className="h-3.5 w-3.5" />
               {pending ? 'Resetting…' : 'Reset password'}

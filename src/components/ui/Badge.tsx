@@ -24,7 +24,10 @@ export function Badge({ tone = 'neutral', className, ...props }: BadgeProps) {
   return (
     <span
       className={cn(
+        // The inset ring keeps light chips from bleeding into a white card and
+        // gives every tone the same crisp edge.
         'inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold whitespace-nowrap',
+        'ring-1 ring-inset ring-black/10',
         TONE_CLASSES[tone],
         className,
       )}

@@ -7,9 +7,9 @@ import type {
 } from 'react';
 
 const FIELD_CLASSES =
-  'w-full rounded-lg border border-hairline bg-white px-3 py-2 text-sm text-ieee-navy ' +
-  'placeholder:text-ieee-gray/70 focus:border-ieee-blue focus:outline-none focus:ring-2 focus:ring-ieee-blue/20 ' +
-  'disabled:bg-surface disabled:text-ieee-gray';
+  'w-full rounded-xl border border-hairline bg-white px-3.5 py-2.5 text-sm text-ieee-navy shadow-sm ' +
+  'placeholder:text-ieee-gray/70 transition-shadow focus:border-ieee-blue focus:outline-none focus:ring-4 focus:ring-ieee-blue/10 ' +
+  'disabled:cursor-not-allowed disabled:bg-surface disabled:text-ieee-gray';
 
 interface FieldProps {
   label: string;

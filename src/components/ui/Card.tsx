@@ -10,7 +10,7 @@ export function Card({ flush = false, className, ...props }: CardProps) {
   return (
     <div
       className={cn(
-        'rounded-xl border border-hairline bg-white shadow-sm',
+        'rounded-xl border border-hairline bg-white shadow-card',
         !flush && 'p-5',
         className,
       )}
@@ -20,7 +20,9 @@ export function Card({ flush = false, className, ...props }: CardProps) {
 }
 
 export function CardTitle({ className, ...props }: HTMLAttributes<HTMLHeadingElement>) {
-  return <h2 className={cn('text-lg font-semibold text-ieee-navy', className)} {...props} />;
+  return (
+    <h2 className={cn('text-lg font-bold tracking-tight text-ieee-navy', className)} {...props} />
+  );
 }
 
 export function CardSubtitle({ className, ...props }: HTMLAttributes<HTMLParagraphElement>) {

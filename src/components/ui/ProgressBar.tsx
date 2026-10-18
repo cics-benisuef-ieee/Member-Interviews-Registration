@@ -18,13 +18,7 @@ interface ProgressBarProps {
 }
 
 /** A slim progress meter — e.g. "how much of today's queue is done". */
-export function ProgressBar({
-  value,
-  max,
-  tone = 'blue',
-  label,
-  className,
-}: ProgressBarProps) {
+export function ProgressBar({ value, max, tone = 'blue', label, className }: ProgressBarProps) {
   const percent = max > 0 ? Math.round((value / max) * 100) : 0;
 
   return (

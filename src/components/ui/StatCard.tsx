@@ -24,14 +24,7 @@ interface StatCardProps {
 }
 
 /** A single headline figure. The workhorse of the admin overview. */
-export function StatCard({
-  label,
-  value,
-  hint,
-  tone = 'navy',
-  icon,
-  className,
-}: StatCardProps) {
+export function StatCard({ label, value, hint, tone = 'navy', icon, className }: StatCardProps) {
   return (
     <div
       className={cn(

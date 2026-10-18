@@ -5,13 +5,14 @@ type ButtonVariant = 'primary' | 'accent' | 'success' | 'secondary' | 'ghost' | 
 type ButtonSize = 'sm' | 'md' | 'lg';
 
 const VARIANT_CLASSES: Record<ButtonVariant, string> = {
-  primary: 'bg-ieee-blue text-white hover:bg-ieee-navy',
-  accent: 'bg-ieee-orange-dark text-white hover:bg-ieee-orange',
-  success: 'bg-ieee-green-dark text-white hover:bg-ieee-green',
+  primary: 'bg-ieee-blue text-white shadow-sm hover:bg-ieee-navy hover:shadow-md',
+  accent: 'bg-ieee-orange-dark text-white shadow-sm hover:bg-ieee-orange hover:shadow-md',
+  success: 'bg-ieee-green-dark text-white shadow-sm hover:bg-ieee-green hover:shadow-md',
   secondary:
-    'bg-white text-ieee-navy border border-hairline hover:border-ieee-blue hover:text-ieee-blue',
-  ghost: 'text-ieee-gray hover:text-ieee-navy',
-  danger: 'bg-ieee-red-dark text-white hover:bg-ieee-red',
+    'bg-white text-ieee-navy border border-hairline shadow-sm ' +
+    'hover:border-ieee-blue hover:text-ieee-blue hover:shadow',
+  ghost: 'text-ieee-gray hover:bg-hairline/60 hover:text-ieee-navy',
+  danger: 'bg-ieee-red-dark text-white shadow-sm hover:bg-ieee-red hover:shadow-md',
 };
 
 const SIZE_CLASSES: Record<ButtonSize, string> = {
@@ -22,9 +23,10 @@ const SIZE_CLASSES: Record<ButtonSize, string> = {
 
 export function buttonClasses(variant: ButtonVariant = 'primary', size: ButtonSize = 'md') {
   return cn(
-    'inline-flex items-center justify-center gap-2 rounded-lg font-semibold transition-colors',
-    'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ieee-cyan',
-    'disabled:cursor-not-allowed disabled:opacity-50',
+    // `transition-all` so the shadow and the 1px press respond together.
+    'inline-flex items-center justify-center gap-2 rounded-xl font-semibold transition-all duration-150',
+    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ieee-blue/40 focus-visible:ring-offset-2 focus-visible:ring-offset-white',
+    'disabled:cursor-not-allowed disabled:opacity-50 disabled:shadow-none',
     VARIANT_CLASSES[variant],
     SIZE_CLASSES[size],
   );
