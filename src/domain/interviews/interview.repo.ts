@@ -1,6 +1,6 @@
 import { createClient } from '@/lib/supabase/server';
 import type { InterviewRow } from '@/types/database';
-import type { InterviewOutcome } from './interview.constants';
+import type { InterviewOutcome, InterviewStatus } from './interview.constants';
 import type { InterviewHistoryEntry, QueueEntry } from './interview.types';
 
 /** The current queue day (YYYY-MM-DD) in the chapter's timezone. */
@@ -57,6 +57,37 @@ export async function listTrackQueue(trackId: string, day: string): Promise<Queu
 
   if (error) throw new Error(`Could not load the queue: ${error.message}`);
   return (data as unknown as QueueEntryRow[]).map(toQueueEntry);
+}
+
+/**
+ * Today's interview status per member — powers the admin members list.
+ *
+ * Every status is kept rather than reduced here: a member can hold several
+ * entries a day (a transfer leaves the original row and adds one in the target
+ * track), and only the caller can decide what the member's day amounts to.
+ */
+export async function listTodayMemberStatuses(
+  day: string,
+  memberIds: string[],
+): Promise<Map<string, InterviewStatus[]>> {
+  if (memberIds.length === 0) return new Map();
+
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from('interviews')
+    .select('member_id, status')
+    .eq('queue_day', day)
+    .in('member_id', memberIds);
+
+  if (error) throw new Error(`Could not load today's interview statuses: ${error.message}`);
+
+  const result = new Map<string, InterviewStatus[]>();
+  for (const row of (data ?? []) as unknown as { member_id: string; status: InterviewStatus }[]) {
+    const existing = result.get(row.member_id);
+    if (existing) existing.push(row.status);
+    else result.set(row.member_id, [row.status]);
+  }
+  return result;
 }
 
 /** Names of the source tracks for entries that were transferred in. */

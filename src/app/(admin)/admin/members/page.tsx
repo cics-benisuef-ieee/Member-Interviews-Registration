@@ -2,10 +2,11 @@ import { BulkDeleteMembers } from '@/components/features/admin/BulkDeleteMembers
 import { MemberListItem } from '@/components/features/admin/MemberListItem';
 import { MemberRegisterForm } from '@/components/features/admin/MemberRegisterForm';
 import { MemberSearchForm } from '@/components/features/admin/MemberSearchForm';
+import { MemberStatusTally } from '@/components/features/admin/MemberStatusTally';
 import { PageHeader } from '@/components/features/shared/PageHeader';
 import { Card, CardSubtitle, CardTitle } from '@/components/ui/Card';
 import { EmptyState } from '@/components/ui/EmptyState';
-import { searchMembers } from '@/domain/members/member.repo';
+import { searchMembersWithStatus } from '@/domain/members/member.service';
 import { listRegistrationTracks } from '@/domain/tracks/track.service';
 import { UserRoundX } from 'lucide-react';
 
@@ -18,7 +19,10 @@ export default async function AdminMembersPage({
 }) {
   const { q = '' } = await searchParams;
 
-  const [members, tracks] = await Promise.all([searchMembers(q), listRegistrationTracks()]);
+  const [members, tracks] = await Promise.all([
+    searchMembersWithStatus(q),
+    listRegistrationTracks(),
+  ]);
 
   return (
     <>
@@ -30,16 +34,19 @@ export default async function AdminMembersPage({
 
           {members.length > 0 && (
             <div className="flex flex-wrap items-center justify-between gap-3">
-              <p className="text-sm text-ieee-gray">
-                Showing <span className="font-semibold text-ieee-navy">{members.length}</span>{' '}
-                {members.length === 1 ? 'member' : 'members'}
-                {q && (
-                  <>
-                    {' '}
-                    matching <span className="font-semibold text-ieee-navy">“{q}”</span>
-                  </>
-                )}
-              </p>
+              <div className="flex flex-wrap items-center gap-2">
+                <p className="text-sm text-ieee-gray">
+                  Showing <span className="font-semibold text-ieee-navy">{members.length}</span>{' '}
+                  {members.length === 1 ? 'member' : 'members'}
+                  {q && (
+                    <>
+                      {' '}
+                      matching <span className="font-semibold text-ieee-navy">“{q}”</span>
+                    </>
+                  )}
+                </p>
+                <MemberStatusTally members={members} />
+              </div>
               <BulkDeleteMembers memberIds={members.map((member) => member.id)} />
             </div>
           )}
@@ -58,7 +65,7 @@ export default async function AdminMembersPage({
             ) : (
               <ul>
                 {members.map((member) => (
-                  <MemberListItem key={member.id} member={member} />
+                  <MemberListItem key={member.id} member={member} status={member.dayStatus} />
                 ))}
               </ul>
             )}

@@ -9,13 +9,15 @@ import {
 } from '@/domain/interviews/interview.service';
 
 /**
- * The same queue is rendered in two places: a track's own board, and the board
- * an admin opens from the overview. Both must refresh after any change, or the
- * admin view would keep showing a stale queue.
+ * The same queue is rendered in three places: a track's own board, the board an
+ * admin opens from the overview, and the members list (whose chips show where
+ * each member stands). All must refresh after any change, or one of them would
+ * keep showing a stale queue.
  */
 function revalidateQueueViews(): void {
   revalidatePath('/board');
   revalidatePath('/admin/tracks/[trackId]', 'page');
+  revalidatePath('/admin/members');
 }
 
 /** WAITING → IN_INTERVIEW. Only a board that owns the track may call this. */

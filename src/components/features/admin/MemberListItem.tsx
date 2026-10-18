@@ -1,19 +1,27 @@
 'use client';
 
 import { deleteMemberAction } from '@/actions/member.actions';
-import type { Member } from '@/domain/members/member.types';
+import { Badge } from '@/components/ui/Badge';
+import type { Member, MemberDayStatus } from '@/domain/members/member.types';
 import { Pencil, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { MemberEditForm } from './MemberEditForm';
+import { dayStatusLabel, dayStatusTone } from './members.format';
+
+interface MemberListItemProps {
+  member: Member;
+  /** Where the member stands in today's queue; null if they have no entry today. */
+  status: MemberDayStatus | null;
+}
 
 /**
- * One member in the admin list: their details, with inline editing and
- * deletion.
+ * One member in the admin list: where they stand today, their details, with
+ * inline editing and deletion.
  *
  * Deletion is destructive and cannot be undone — it also removes every queue
  * entry that member was part of — so it always takes two deliberate clicks.
  */
-export function MemberListItem({ member }: { member: Member }) {
+export function MemberListItem({ member, status }: MemberListItemProps) {
   const [editing, setEditing] = useState(false);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
 
@@ -21,8 +29,13 @@ export function MemberListItem({ member }: { member: Member }) {
     <li className="border-b border-hairline px-5 py-4 last:border-b-0">
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0">
-          <p className="truncate font-semibold text-ieee-navy">{member.fullName}</p>
-          <p className="text-sm text-ieee-gray">
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="font-semibold text-ieee-navy">{member.fullName}</p>
+            <Badge tone={status ? dayStatusTone(status) : 'neutral'}>
+              {status ? dayStatusLabel(status) : 'Not queued today'}
+            </Badge>
+          </div>
+          <p className="mt-1 text-sm text-ieee-gray">
             {member.phone ?? 'No phone'}
             {member.email && ` · ${member.email}`}
           </p>
