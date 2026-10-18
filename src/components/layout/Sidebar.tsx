@@ -11,7 +11,7 @@ interface SidebarProps {
 
 export function Sidebar({ user, items }: SidebarProps) {
   return (
-    <aside className="flex flex-col bg-ieee-navy text-white md:min-h-screen md:w-64 md:shrink-0">
+    <aside className="flex h-full flex-col bg-ieee-navy text-white">
       <div className="flex items-center gap-3 border-b border-white/10 p-5">
         <Image
           src="/logo.png"
@@ -29,7 +29,7 @@ export function Sidebar({ user, items }: SidebarProps) {
         </div>
       </div>
 
-      <nav className="flex-1 space-y-1 p-3">
+      <nav className="flex-1 space-y-1 overflow-y-auto p-3">
         {items.map((item) => (
           <NavItemLink key={item.href} item={item} />
         ))}
