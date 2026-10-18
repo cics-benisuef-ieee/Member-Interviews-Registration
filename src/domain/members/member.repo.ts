@@ -24,16 +24,18 @@ export async function findMember(id: string): Promise<Member | null> {
 export async function searchMembers(query: string, limit = 50): Promise<Member[]> {
   const supabase = await createClient();
 
+  const term = sanitizeSearchTerm(query);
+
   let builder = supabase
     .from('members')
     .select(MEMBER_COLUMNS)
     .order('created_at', { ascending: false })
     .limit(limit);
 
-  if (query) {
-    builder = builder.or(
-      `full_name.ilike.%${escapeLike(query)},phone.ilike.%${escapeLike(query)}%`,
-    );
+  if (term) {
+    // Both columns need the same trailing wildcard: the previous version only
+    // had one on `phone`, so searching "Ah" could never match "Ahmed".
+    builder = builder.or(`full_name.ilike.%${term}%,phone.ilike.%${term}%`);
   }
 
   const { data, error } = await builder;
@@ -60,6 +62,15 @@ export async function updateMember(
   if (error) throw new Error(error.message);
 }
 
-function escapeLike(value: string): string {
-  return value.replace(/[%_,()]/g, ' ');
+/**
+ * Removes characters that are meaningful to the PostgREST filter grammar
+ * (`,`, `(`, `)`) or to LIKE patterns (`%`, `_`), and collapses the whitespace
+ * they leave behind. A search for "O'Brien" should not be able to change the
+ * shape of the query.
+ */
+function sanitizeSearchTerm(value: string): string {
+  return value
+    .replace(/[,()%_\\"]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
 }

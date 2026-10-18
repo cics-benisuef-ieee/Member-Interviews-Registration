@@ -37,6 +37,23 @@ const config: Config = {
       fontFamily: {
         sans: ['var(--font-source-sans)', 'system-ui', 'sans-serif'],
       },
+      boxShadow: {
+        /** Resting card elevation — soft and navy-tinted, not flat black. */
+        card: '0 1px 2px rgba(0, 40, 85, 0.06), 0 1px 3px rgba(0, 40, 85, 0.04)',
+        /** Hover/emphasis for interactive cards. */
+        raised: '0 6px 16px rgba(0, 40, 85, 0.10)',
+        /** Floating elements: dialogs, dropdowns. */
+        pop: '0 12px 32px rgba(0, 40, 85, 0.16)',
+      },
+      keyframes: {
+        'fade-rise': {
+          from: { opacity: '0', transform: 'translateY(4px)' },
+          to: { opacity: '1', transform: 'translateY(0)' },
+        },
+      },
+      animation: {
+        'fade-rise': 'fade-rise 0.2s ease-out both',
+      },
     },
   },
   plugins: [],
