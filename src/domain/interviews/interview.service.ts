@@ -13,13 +13,13 @@ import type {
 
 // ── Reads ──────────────────────────────────────────────────────────────────
 
-/** Everything one track's board displays for today. */
-export async function getTrackBoard(trackId: string): Promise<TrackBoard> {
+/** Everything one track's board displays for today, or null if no such track. */
+export async function getTrackBoard(trackId: string): Promise<TrackBoard | null> {
   const [track, day] = await Promise.all([
     trackRepo.findTrack(trackId),
     interviewRepo.getQueueDay(),
   ]);
-  if (!track) throw new Error('Track not found.');
+  if (!track) return null;
 
   const queue = await interviewRepo.listTrackQueue(trackId, day);
   const sourceTracks = await interviewRepo.listSourceTrackNames(

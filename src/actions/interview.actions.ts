@@ -1,32 +1,42 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import { requireTrackUser } from '@/domain/auth/guards';
+import { requireBoardUser } from '@/domain/auth/guards';
 import {
   finishInterview,
   startInterview,
   transferInterview,
 } from '@/domain/interviews/interview.service';
 
-/** WAITING → IN_INTERVIEW. Only the board that owns the track may call this. */
-export async function startInterviewAction(interviewId: string): Promise<void> {
-  await requireTrackUser();
-  await startInterview(interviewId);
+/**
+ * The same queue is rendered in two places: a track's own board, and the board
+ * an admin opens from the overview. Both must refresh after any change, or the
+ * admin view would keep showing a stale queue.
+ */
+function revalidateQueueViews(): void {
   revalidatePath('/board');
+  revalidatePath('/admin/tracks/[trackId]', 'page');
+}
+
+/** WAITING → IN_INTERVIEW. Only a board that owns the track may call this. */
+export async function startInterviewAction(interviewId: string): Promise<void> {
+  await requireBoardUser();
+  await startInterview(interviewId);
+  revalidateQueueViews();
 }
 
 /** IN_INTERVIEW → PASSED. */
 export async function passInterviewAction(interviewId: string): Promise<void> {
-  await requireTrackUser();
+  await requireBoardUser();
   await finishInterview({ interviewId, outcome: 'PASSED' });
-  revalidatePath('/board');
+  revalidateQueueViews();
 }
 
 /** IN_INTERVIEW → REJECTED. */
 export async function rejectInterviewAction(interviewId: string): Promise<void> {
-  await requireTrackUser();
+  await requireBoardUser();
   await finishInterview({ interviewId, outcome: 'REJECTED' });
-  revalidatePath('/board');
+  revalidateQueueViews();
 }
 
 export interface TransferFormState {
@@ -38,7 +48,7 @@ export async function transferInterviewAction(
   _prevState: TransferFormState,
   formData: FormData,
 ): Promise<TransferFormState> {
-  await requireTrackUser();
+  await requireBoardUser();
 
   try {
     await transferInterview({
@@ -50,6 +60,6 @@ export async function transferInterviewAction(
     return { error: error instanceof Error ? error.message : 'Transfer failed. Try again.' };
   }
 
-  revalidatePath('/board');
+  revalidateQueueViews();
   return { error: null };
 }

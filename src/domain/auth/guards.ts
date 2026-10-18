@@ -23,3 +23,17 @@ export async function requireTrackUser(): Promise<SessionUser> {
   if (!user.trackId) redirect('/login');
   return user;
 }
+
+/**
+ * Requires an account that may drive a queue: a track's shared login, or an
+ * admin working inside a track's board.
+ *
+ * This is only a "signed in as someone who can act" check. Whether the account
+ * may act on the *specific* interview is enforced in the database
+ * (`can_manage_interview`), which cannot be bypassed by a crafted request.
+ */
+export async function requireBoardUser(): Promise<SessionUser> {
+  const user = await requireSession();
+  if (user.role !== 'ADMIN' && !user.trackId) redirect('/login');
+  return user;
+}
