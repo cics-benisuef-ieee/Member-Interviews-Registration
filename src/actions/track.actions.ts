@@ -8,6 +8,7 @@ import {
   setTrackActive,
   setTrackTvVisible,
 } from '@/domain/tracks/track.service';
+import { actionFailed, type ActionState } from '@/lib/action-state';
 
 export interface TrackFormState {
   error: string | null;
@@ -34,15 +35,24 @@ export async function createTrackAction(
   return { error: null, newCredential: null };
 }
 
-export async function setTrackActiveAction(formData: FormData): Promise<void> {
+export async function setTrackActiveAction(
+  _prevState: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
   await requireAdmin();
 
   const trackId = String(formData.get('trackId') ?? '');
   const isActive = formData.get('isActive') === 'true';
 
-  await setTrackActive(trackId, isActive);
+  try {
+    await setTrackActive(trackId, isActive);
+  } catch (error) {
+    return actionFailed(error, 'Could not change that track.');
+  }
+
   revalidatePath('/admin/tracks');
   revalidatePath('/tv');
+  return { error: null };
 }
 
 /**
@@ -50,15 +60,24 @@ export async function setTrackActiveAction(formData: FormData): Promise<void> {
  * the same as access: a hidden track's board, login, and registration all
  * keep working.
  */
-export async function setTrackTvVisibleAction(formData: FormData): Promise<void> {
+export async function setTrackTvVisibleAction(
+  _prevState: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
   await requireAdmin();
 
   const trackId = String(formData.get('trackId') ?? '');
   const tvVisible = formData.get('tvVisible') === 'true';
 
-  await setTrackTvVisible(trackId, tvVisible);
+  try {
+    await setTrackTvVisible(trackId, tvVisible);
+  } catch (error) {
+    return actionFailed(error, 'Could not change what the hall display shows.');
+  }
+
   revalidatePath('/admin/tracks');
   revalidatePath('/tv');
+  return { error: null };
 }
 
 /** Resets the shared login password and shows the new one exactly once. */

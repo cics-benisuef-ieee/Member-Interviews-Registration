@@ -10,6 +10,9 @@ import type {
 } from './evaluation';
 import type { InterviewHistoryEntry, QueueEntry, TvBoard } from './interview.types';
 
+/** Matches the ids the app hands around — `interviews.id` and friends are uuids. */
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 /** The current queue day (YYYY-MM-DD) in the chapter's timezone. */
 export async function getQueueDay(): Promise<string> {
   const supabase = await createClient();
@@ -341,8 +344,16 @@ export async function listHistory(filters: {
     .order('queue_number')
     .limit(filters.limit ?? 200);
 
-  if (filters.day) query = query.eq('queue_day', filters.day);
-  if (filters.trackId) query = query.eq('track_id', filters.trackId);
+  // These arrive from the address bar, so they are only applied once they look
+  // like what they claim to be: "2026-10-19" and a uuid. Hand-edited or
+  // bookmarked links must not turn into a Postgres cast error (which would
+  // blank the page).
+  if (filters.day && /^\d{4}-\d{2}-\d{2}$/.test(filters.day)) {
+    query = query.eq('queue_day', filters.day);
+  }
+  if (filters.trackId && UUID_PATTERN.test(filters.trackId)) {
+    query = query.eq('track_id', filters.trackId);
+  }
 
   const { data, error } = await query;
   if (error) throw new Error(`Could not load history: ${error.message}`);

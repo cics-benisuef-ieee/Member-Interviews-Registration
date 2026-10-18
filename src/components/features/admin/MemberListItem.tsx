@@ -4,8 +4,9 @@ import { deleteMemberAction } from '@/actions/member.actions';
 import { Badge } from '@/components/ui/Badge';
 import { RECOMMENDATION_LABELS, type Recommendation } from '@/domain/interviews/evaluation';
 import type { MemberWithStatus, MemberTodayInterview } from '@/domain/members/member.types';
+import type { ActionState } from '@/lib/action-state';
 import { ChevronDown, ChevronUp, Pencil, Trash2 } from 'lucide-react';
-import { useState } from 'react';
+import { useActionState, useState } from 'react';
 import { formatQueueNumber, formatTime, statusLabel, statusTone } from '../queue/queue.format';
 import { MemberEditForm } from './MemberEditForm';
 import { dayStatusLabel, dayStatusTone } from './members.format';
@@ -22,6 +23,10 @@ export function MemberListItem({ member }: { member: MemberWithStatus }) {
   const [editing, setEditing] = useState(false);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [showDetails, setShowDetails] = useState(false);
+  const [deleteState, deleteAction, deletePending] = useActionState<ActionState, FormData>(
+    deleteMemberAction,
+    { error: null },
+  );
 
   const transferred = member.registeredTrackName !== member.currentTrackName;
 
@@ -59,13 +64,15 @@ export function MemberListItem({ member }: { member: MemberWithStatus }) {
         <div className="flex shrink-0 items-center gap-2">
           {confirmingDelete ? (
             <>
-              <form action={deleteMemberAction.bind(null, member.id)}>
+              <form action={deleteAction}>
+                <input type="hidden" name="memberId" value={member.id} />
                 <button
                   type="submit"
-                  className="inline-flex items-center gap-1 rounded-xl bg-ieee-red-dark px-3 py-1.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-ieee-red"
+                  disabled={deletePending}
+                  className="inline-flex items-center gap-1 rounded-xl bg-ieee-red-dark px-3 py-1.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-ieee-red disabled:opacity-50"
                 >
                   <Trash2 className="h-3.5 w-3.5" />
-                  Delete forever
+                  {deletePending ? 'Deleting…' : 'Delete forever'}
                 </button>
               </form>
               <button
@@ -114,6 +121,12 @@ export function MemberListItem({ member }: { member: MemberWithStatus }) {
           )}
         </div>
       </div>
+
+      {deleteState.error && (
+        <p className="mt-3 rounded-lg bg-ieee-red-dark/5 px-3 py-2 text-sm font-semibold text-ieee-red-dark">
+          {deleteState.error}
+        </p>
+      )}
 
       {showDetails && (
         <div className="mt-3 space-y-2">

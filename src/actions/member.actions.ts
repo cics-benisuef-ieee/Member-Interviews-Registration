@@ -5,6 +5,7 @@ import { z } from 'zod';
 import { requireAdmin } from '@/domain/auth/guards';
 import { applyMemberUpdate, parseMemberInput } from '@/domain/members/member.service';
 import { registerMember } from '@/domain/interviews/interview.service';
+import { actionFailed, type ActionState } from '@/lib/action-state';
 import { deleteMember, deleteMembers } from '@/domain/members/member.repo';
 
 export interface MemberFormState {
@@ -70,22 +71,40 @@ const singleIdSchema = z.string().uuid();
 const idListSchema = z.array(z.string().uuid()).min(1).max(1000);
 
 /** Removes one member. */
-export async function deleteMemberAction(memberId: string): Promise<void> {
+export async function deleteMemberAction(
+  _prevState: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
   await requireAdmin();
-  await deleteMember(singleIdSchema.parse(memberId));
+
+  try {
+    await deleteMember(singleIdSchema.parse(String(formData.get('memberId') ?? '')));
+  } catch (error) {
+    return actionFailed(error, 'Could not delete that member.');
+  }
 
   // These screens all quote queue totals.
   revalidatePath('/admin/members');
   revalidatePath('/admin');
   revalidatePath('/board');
+  return { error: null };
 }
 
 /** Removes every listed member at once — for clearing demo or test data. */
-export async function deleteMembersAction(memberIds: string[]): Promise<void> {
+export async function deleteMembersAction(
+  _prevState: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
   await requireAdmin();
-  await deleteMembers(idListSchema.parse(memberIds));
+
+  try {
+    await deleteMembers(idListSchema.parse(formData.getAll('memberIds').map(String)));
+  } catch (error) {
+    return actionFailed(error, 'Could not delete the listed members.');
+  }
 
   revalidatePath('/admin/members');
   revalidatePath('/admin');
   revalidatePath('/board');
+  return { error: null };
 }

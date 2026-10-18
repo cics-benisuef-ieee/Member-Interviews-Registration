@@ -10,6 +10,7 @@ import {
   unstartInterview,
 } from '@/domain/interviews/interview.service';
 import { evaluationFromFormData } from '@/domain/interviews/evaluation.schema';
+import { actionFailed, type ActionState } from '@/lib/action-state';
 
 /**
  * The same queue is rendered in three places: a track's own board, the board an
@@ -24,21 +25,48 @@ function revalidateQueueViews(): void {
   revalidatePath('/tv');
 }
 
-/** WAITING → IN_INTERVIEW. Only a board that owns the track may call this. */
-export async function startInterviewAction(interviewId: string): Promise<void> {
+/**
+ * WAITING → IN_INTERVIEW. Only a board that owns the track may call this.
+ *
+ * The board can be a few seconds out of date (another tab, a second device,
+ * a double click), so a refusal from the database — "only a waiting member
+ * can be started" — is reported back to the caller rather than thrown:
+ * throwing would swap the whole board for the error page mid-interview.
+ */
+export async function startInterviewAction(
+  _prevState: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
   await requireBoardUser();
-  await startInterview(interviewId);
+
+  try {
+    await startInterview(String(formData.get('interviewId') ?? ''));
+  } catch (error) {
+    return actionFailed(error, 'Could not start that interview.');
+  }
+
   revalidateQueueViews();
+  return { error: null };
 }
 
 /**
  * IN_INTERVIEW → WAITING. Keeps the queue number and any evaluation saved
  * so far — only the clock resets.
  */
-export async function unstartInterviewAction(interviewId: string): Promise<void> {
+export async function unstartInterviewAction(
+  _prevState: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
   await requireBoardUser();
-  await unstartInterview(interviewId);
+
+  try {
+    await unstartInterview(String(formData.get('interviewId') ?? ''));
+  } catch (error) {
+    return actionFailed(error, 'Could not return that member to the queue.');
+  }
+
   revalidateQueueViews();
+  return { error: null };
 }
 
 export interface EvaluationFormState {
@@ -79,17 +107,43 @@ export async function saveInterviewEvaluationAction(
 }
 
 /** IN_INTERVIEW → PASSED. */
-export async function passInterviewAction(interviewId: string): Promise<void> {
+export async function passInterviewAction(
+  _prevState: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
   await requireBoardUser();
-  await finishInterview({ interviewId, outcome: 'PASSED' });
+
+  try {
+    await finishInterview({
+      interviewId: String(formData.get('interviewId') ?? ''),
+      outcome: 'PASSED',
+    });
+  } catch (error) {
+    return actionFailed(error, 'Could not pass this interview.');
+  }
+
   revalidateQueueViews();
+  return { error: null };
 }
 
 /** IN_INTERVIEW → REJECTED. */
-export async function rejectInterviewAction(interviewId: string): Promise<void> {
+export async function rejectInterviewAction(
+  _prevState: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
   await requireBoardUser();
-  await finishInterview({ interviewId, outcome: 'REJECTED' });
+
+  try {
+    await finishInterview({
+      interviewId: String(formData.get('interviewId') ?? ''),
+      outcome: 'REJECTED',
+    });
+  } catch (error) {
+    return actionFailed(error, 'Could not reject this interview.');
+  }
+
   revalidateQueueViews();
+  return { error: null };
 }
 
 export interface TransferFormState {
@@ -110,7 +164,7 @@ export async function transferInterviewAction(
       notes: String(formData.get('notes') ?? '') || undefined,
     });
   } catch (error) {
-    return { error: error instanceof Error ? error.message : 'Transfer failed. Try again.' };
+    return actionFailed(error, 'Transfer failed. Try again.');
   }
 
   revalidateQueueViews();

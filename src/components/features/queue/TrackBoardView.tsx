@@ -1,14 +1,12 @@
-import { startInterviewAction } from '@/actions/interview.actions';
-import { Button } from '@/components/ui/Button';
 import { Card, CardTitle } from '@/components/ui/Card';
 import type { TrackBoard } from '@/domain/interviews/interview.types';
 import type { Track } from '@/domain/tracks/track.types';
-import { Play } from 'lucide-react';
 import { AutoRefresh } from '../shared/AutoRefresh';
 import { NowServing } from './NowServing';
 import { QueueEmpty } from './QueueEmpty';
 import { QueueHeader } from './QueueHeader';
 import { FinishedRow, QueueRow } from './QueueRow';
+import { StartInterviewButton } from './StartInterviewButton';
 
 interface TrackBoardViewProps {
   board: TrackBoard;
@@ -51,12 +49,12 @@ export function TrackBoardView({ board, otherTracks }: TrackBoardViewProps) {
                   </p>
                   <p className="mt-1 text-xl font-bold text-ieee-navy">{nextUp.member.fullName}</p>
                 </div>
-                <form action={startInterviewAction.bind(null, nextUp.id)}>
-                  <Button variant="accent" size="lg">
-                    <Play className="h-4 w-4" />
-                    Start interview
-                  </Button>
-                </form>
+                <StartInterviewButton
+                  interviewId={nextUp.id}
+                  label="Start interview"
+                  size="lg"
+                  withIcon
+                />
               </Card>
             )
           )}
@@ -75,11 +73,7 @@ export function TrackBoardView({ board, otherTracks }: TrackBoardViewProps) {
                     // sets only that row IN_INTERVIEW; everything else in the
                     // queue is untouched.
                     entry={entry}
-                    action={
-                      <form action={startInterviewAction.bind(null, entry.id)}>
-                        <Button size="sm">Start</Button>
-                      </form>
-                    }
+                    action={<StartInterviewButton interviewId={entry.id} label="Start" size="sm" />}
                   />
                 ))}
               </ul>

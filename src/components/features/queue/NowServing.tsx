@@ -1,16 +1,9 @@
-import {
-  passInterviewAction,
-  rejectInterviewAction,
-  unstartInterviewAction,
-} from '@/actions/interview.actions';
 import { Badge } from '@/components/ui/Badge';
-import { Button } from '@/components/ui/Button';
-import { TransferDialog } from '@/components/features/transfer/TransferDialog';
 import { isEvaluationComplete, RECOMMENDATION_LABELS } from '@/domain/interviews/evaluation';
 import type { QueueEntry } from '@/domain/interviews/interview.types';
-import { Undo2 } from 'lucide-react';
 import { EvaluationForm } from './EvaluationForm';
 import { formatQueueNumber, formatTime } from './queue.format';
+import { ServingActions } from './ServingActions';
 
 interface NowServingProps {
   entry: QueueEntry;
@@ -48,44 +41,12 @@ export function NowServing({ entry, availableTracks }: NowServingProps) {
           </div>
         </div>
 
-        <div className="flex flex-wrap gap-2">
-          <form action={passInterviewAction.bind(null, entry.id)}>
-            <Button
-              variant="success"
-              disabled={!complete}
-              title={complete ? undefined : unfinishedHint}
-            >
-              Pass
-            </Button>
-          </form>
-
-          <form action={rejectInterviewAction.bind(null, entry.id)}>
-            <Button
-              variant="danger"
-              disabled={!complete}
-              title={complete ? undefined : unfinishedHint}
-            >
-              Reject
-            </Button>
-          </form>
-
-          <TransferDialog
-            interviewId={entry.id}
-            targetTracks={availableTracks}
-            disabled={!complete}
-            disabledHint={unfinishedHint}
-          />
-
-          <form
-            action={unstartInterviewAction.bind(null, entry.id)}
-            title="Returns the member to the waiting queue, keeping their place and the evaluation so far"
-          >
-            <Button variant="secondary">
-              <Undo2 className="h-4 w-4" />
-              Unstart
-            </Button>
-          </form>
-        </div>
+        <ServingActions
+          interviewId={entry.id}
+          availableTracks={availableTracks}
+          complete={complete}
+          unfinishedHint={unfinishedHint}
+        />
       </div>
 
       <div className="mt-5 border-t border-hairline pt-4">

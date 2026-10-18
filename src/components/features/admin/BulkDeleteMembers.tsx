@@ -1,8 +1,9 @@
 'use client';
 
 import { deleteMembersAction } from '@/actions/member.actions';
+import type { ActionState } from '@/lib/action-state';
 import { Trash2 } from 'lucide-react';
-import { useState } from 'react';
+import { useActionState, useState } from 'react';
 
 interface BulkDeleteMembersProps {
   /** The ids of every member currently listed — the action deletes exactly these. */
@@ -19,6 +20,10 @@ interface BulkDeleteMembersProps {
  */
 export function BulkDeleteMembers({ memberIds }: BulkDeleteMembersProps) {
   const [confirming, setConfirming] = useState(false);
+  const [state, deleteAction, pending] = useActionState<ActionState, FormData>(
+    deleteMembersAction,
+    { error: null },
+  );
 
   if (memberIds.length === 0) return null;
 
@@ -38,16 +43,24 @@ export function BulkDeleteMembers({ memberIds }: BulkDeleteMembersProps) {
           >
             Cancel
           </button>
-          <form action={deleteMembersAction.bind(null, memberIds)}>
+          <form action={deleteAction}>
+            {memberIds.map((id) => (
+              <input key={id} type="hidden" name="memberIds" value={id} />
+            ))}
             <button
               type="submit"
-              className="inline-flex items-center gap-1 rounded-xl bg-ieee-red-dark px-3 py-1.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-ieee-red"
+              disabled={pending}
+              className="inline-flex items-center gap-1 rounded-xl bg-ieee-red-dark px-3 py-1.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-ieee-red disabled:opacity-50"
             >
               <Trash2 className="h-3.5 w-3.5" />
-              Delete {memberIds.length}
+              {pending ? 'Deleting…' : `Delete ${memberIds.length}`}
             </button>
           </form>
         </div>
+
+        {state.error && (
+          <p className="w-full text-sm font-semibold text-ieee-red-dark">{state.error}</p>
+        )}
       </div>
     );
   }
