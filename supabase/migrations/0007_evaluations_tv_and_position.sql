@@ -110,7 +110,8 @@ declare
   v_scores jsonb := coalesce(p_evaluation -> 'scores', 'null'::jsonb);
   v_key    text;
   v_max    integer;
-  v_total  integer;
+  v_score  numeric;
+  v_total  integer := 0;
 begin
   -- NULL-safe: `not in` alone would let a null recommendation slip through.
   if p_recommendation is null
@@ -157,24 +158,24 @@ begin
       raise exception 'Missing a score for "%".', v_key;
     end if;
 
-    if (v_scores -> v_key ->> 'score')::numeric < 0
-       or (v_scores -> v_key ->> 'score')::numeric > v_max then
+    v_score := (v_scores -> v_key ->> 'score')::numeric;
+
+    if v_score <> trunc(v_score) then
+      raise exception 'The score for "%" must be a whole number.', v_key;
+    end if;
+
+    if v_score < 0 or v_score > v_max then
       raise exception 'The score for "%" must be between 0 and %.', v_key, v_max;
     end if;
 
     if coalesce(trim(v_scores -> v_key ->> 'notes'), '') = '' then
       raise exception 'A note is required for "%".', v_key;
     end if;
-  end loop;
 
-  -- Sum only the known criteria, so stray keys cannot inflate the total.
-  select coalesce(sum((v_scores -> v_key ->> 'score')::numeric)::integer, 0)
-  into v_total
-  from unnest(array[
-    'motivation', 'teamwork', 'commitment', 'communication', 'flexibility',
-    'technicalKnowledge', 'analyticalThinking', 'projectsExperience',
-    'practicalApplication', 'ieeeGoals', 'studentBranch'
-  ]) as v_key;
+    -- Only the criteria walked here count, so stray keys cannot inflate the
+    -- total (and the loop variable never collides with a SQL alias).
+    v_total := v_total + v_score::integer;
+  end loop;
 
   if v_total < 0 or v_total > 100 then
     raise exception 'The evaluation total must be between 0 and 100 (got %).', v_total;
