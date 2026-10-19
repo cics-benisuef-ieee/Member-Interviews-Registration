@@ -52,6 +52,7 @@ export function TransferDialog({
         disabled={disabled}
         title={disabled ? disabledHint : undefined}
         onClick={() => setOpen(true)}
+        className="w-full sm:w-auto"
       >
         <ArrowRightLeft className="h-4 w-4" />
         Send to another track
@@ -60,9 +61,9 @@ export function TransferDialog({
       <dialog
         ref={dialogRef}
         onClose={() => setOpen(false)}
-        className="w-full max-w-md rounded-xl border border-hairline bg-white p-0 backdrop:bg-ieee-navy/50"
+        className="m-auto w-[calc(100%-2rem)] max-w-md rounded-xl border border-hairline bg-white p-0 backdrop:bg-ieee-navy/50"
       >
-        <div className="p-6">
+        <div className="max-h-[85vh] overflow-y-auto p-6">
           <h2 className="text-lg font-bold text-ieee-navy">Send to another track</h2>
           <p className="mt-1 text-sm text-ieee-gray">
             The member joins the chosen track’s queue for the rest of today.

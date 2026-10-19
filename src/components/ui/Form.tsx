@@ -7,7 +7,9 @@ import type {
 } from 'react';
 
 const FIELD_CLASSES =
-  'w-full rounded-xl border border-hairline bg-white px-3.5 py-2.5 text-sm text-ieee-navy shadow-sm ' +
+  // `text-base` on small screens keeps iOS Safari from zooming the page when a
+  // field is focused; `sm:text-sm` restores the tighter desktop sizing.
+  'w-full rounded-xl border border-hairline bg-white px-3.5 py-2.5 text-base text-ieee-navy shadow-sm sm:text-sm ' +
   'placeholder:text-ieee-gray/70 transition-shadow focus:border-ieee-blue focus:outline-none focus:ring-4 focus:ring-ieee-blue/10 ' +
   'disabled:cursor-not-allowed disabled:bg-surface disabled:text-ieee-gray';
 

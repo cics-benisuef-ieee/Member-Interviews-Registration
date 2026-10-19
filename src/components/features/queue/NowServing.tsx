@@ -18,13 +18,16 @@ export function NowServing({ entry, availableTracks }: NowServingProps) {
     'Save a complete evaluation first — every criterion with a note, both interviewer fields, and a recommendation.';
 
   return (
-    <section className="rounded-xl border-2 border-ieee-orange-dark bg-white p-6 shadow-md">
+    <section className="relative overflow-hidden rounded-xl border-2 border-ieee-orange-dark bg-gradient-surface p-6 shadow-raised">
+      <span aria-hidden className="absolute inset-x-0 top-0 h-1 bg-gradient-orange" />
       <div className="flex flex-wrap items-start justify-between gap-4">
-        <div>
+        <div className="min-w-0">
           <p className="text-xs font-bold tracking-widest text-ieee-orange-dark uppercase">
             Now interviewing
           </p>
-          <p className="mt-2 text-3xl font-bold text-ieee-navy">{entry.member.fullName}</p>
+          <p className="mt-2 text-3xl font-bold break-words text-ieee-navy">
+            {entry.member.fullName}
+          </p>
           <div className="mt-2 flex flex-wrap items-center gap-2 text-sm text-ieee-gray">
             <Badge tone="waiting">Queue {formatQueueNumber(entry.queueNumber)}</Badge>
             {evaluation && (
@@ -43,12 +46,14 @@ export function NowServing({ entry, availableTracks }: NowServingProps) {
           </div>
         </div>
 
-        <ServingActions
-          interviewId={entry.id}
-          availableTracks={availableTracks}
-          complete={complete}
-          unfinishedHint={unfinishedHint}
-        />
+        <div className="w-full sm:w-auto">
+          <ServingActions
+            interviewId={entry.id}
+            availableTracks={availableTracks}
+            complete={complete}
+            unfinishedHint={unfinishedHint}
+          />
+        </div>
       </div>
 
       <div className="mt-5 border-t border-hairline pt-4">

@@ -10,7 +10,7 @@ export function Card({ flush = false, className, ...props }: CardProps) {
   return (
     <div
       className={cn(
-        'rounded-xl border border-hairline bg-white shadow-card',
+        'rounded-xl border border-hairline bg-gradient-surface shadow-card',
         !flush && 'p-5',
         className,
       )}

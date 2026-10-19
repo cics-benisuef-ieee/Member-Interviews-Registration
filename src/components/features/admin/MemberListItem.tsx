@@ -32,7 +32,7 @@ export function MemberListItem({ member }: { member: MemberWithStatus }) {
 
   return (
     <li className="border-b border-hairline px-5 py-4 last:border-b-0">
-      <div className="flex items-start justify-between gap-4">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
             <p className="font-semibold text-ieee-navy">{member.fullName}</p>
@@ -61,7 +61,7 @@ export function MemberListItem({ member }: { member: MemberWithStatus }) {
           {member.notes && <p className="mt-1 text-sm text-ieee-gray italic">{member.notes}</p>}
         </div>
 
-        <div className="flex shrink-0 items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2 sm:shrink-0">
           {confirmingDelete ? (
             <>
               <form action={deleteAction}>

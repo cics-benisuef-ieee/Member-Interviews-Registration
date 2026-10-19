@@ -54,44 +54,54 @@ export function ServingActions({
 
   return (
     <div className="space-y-3">
-      <div className="flex flex-wrap gap-2">
-        <form action={passAction}>
+      <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+        <form action={passAction} className="w-full sm:w-auto">
           <input type="hidden" name="interviewId" value={interviewId} />
           <Button
             variant="success"
             type="submit"
             disabled={!complete || passPending}
             title={complete ? undefined : unfinishedHint}
+            className="w-full sm:w-auto"
           >
             {passPending ? 'Passing…' : 'Pass'}
           </Button>
         </form>
 
-        <form action={rejectAction}>
+        <form action={rejectAction} className="w-full sm:w-auto">
           <input type="hidden" name="interviewId" value={interviewId} />
           <Button
             variant="danger"
             type="submit"
             disabled={!complete || rejectPending}
             title={complete ? undefined : unfinishedHint}
+            className="w-full sm:w-auto"
           >
             {rejectPending ? 'Rejecting…' : 'Reject'}
           </Button>
         </form>
 
-        <TransferDialog
-          interviewId={interviewId}
-          targetTracks={availableTracks}
-          disabled={!complete}
-          disabledHint={unfinishedHint}
-        />
+        <div className="w-full sm:w-auto">
+          <TransferDialog
+            interviewId={interviewId}
+            targetTracks={availableTracks}
+            disabled={!complete}
+            disabledHint={unfinishedHint}
+          />
+        </div>
 
         <form
           action={unstartAction}
           title="Returns the member to the waiting queue, keeping their place and the evaluation so far"
+          className="w-full sm:w-auto"
         >
           <input type="hidden" name="interviewId" value={interviewId} />
-          <Button variant="secondary" type="submit" disabled={unstartPending}>
+          <Button
+            variant="secondary"
+            type="submit"
+            disabled={unstartPending}
+            className="w-full sm:w-auto"
+          >
             <Undo2 className="h-4 w-4" />
             {unstartPending ? 'Returning…' : 'Unstart'}
           </Button>

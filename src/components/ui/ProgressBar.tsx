@@ -3,9 +3,9 @@ import { cn } from '@/lib/utils';
 type ProgressTone = 'blue' | 'green' | 'orange';
 
 const TONE_FILL: Record<ProgressTone, string> = {
-  blue: 'bg-ieee-blue',
-  green: 'bg-ieee-green-dark',
-  orange: 'bg-ieee-orange-dark',
+  blue: 'bg-gradient-cyan',
+  green: 'bg-gradient-green',
+  orange: 'bg-gradient-orange',
 };
 
 interface ProgressBarProps {

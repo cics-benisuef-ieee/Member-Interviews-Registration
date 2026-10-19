@@ -5,11 +5,11 @@ import type { ReactNode } from 'react';
 export type StatTone = 'navy' | 'blue' | 'orange' | 'green' | 'red' | 'gray';
 
 const TONE_CHIP: Record<StatTone, string> = {
-  navy: 'bg-ieee-navy/10 text-ieee-navy',
-  blue: 'bg-ieee-blue/10 text-ieee-blue',
-  orange: 'bg-ieee-orange/20 text-ieee-orange-dark',
-  green: 'bg-ieee-green/10 text-ieee-green-dark',
-  red: 'bg-ieee-red/10 text-ieee-red-dark',
+  navy: 'bg-gradient-navy-soft text-white shadow-sm',
+  blue: 'bg-gradient-blue text-white shadow-sm',
+  orange: 'bg-gradient-orange text-white shadow-sm',
+  green: 'bg-gradient-green text-white shadow-sm',
+  red: 'bg-gradient-red text-white shadow-sm',
   gray: 'bg-hairline text-ieee-gray',
 };
 
@@ -28,7 +28,7 @@ export function StatCard({ label, value, hint, tone = 'navy', icon, className }:
   return (
     <div
       className={cn(
-        'rounded-xl border border-hairline bg-white p-5 shadow-card transition-shadow hover:shadow-raised',
+        'rounded-xl border border-hairline bg-gradient-surface p-5 shadow-card transition-shadow hover:shadow-raised',
         className,
       )}
     >

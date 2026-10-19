@@ -8,11 +8,11 @@ import type { HTMLAttributes } from 'react';
 export type BadgeTone = 'waiting' | 'active' | 'passed' | 'rejected' | 'transferred' | 'neutral';
 
 const TONE_CLASSES: Record<BadgeTone, string> = {
-  waiting: 'bg-ieee-gold text-ieee-navy',
-  active: 'bg-ieee-orange-dark text-white',
-  passed: 'bg-ieee-green-dark text-white',
-  rejected: 'bg-ieee-red-dark text-white',
-  transferred: 'bg-ieee-cyan text-ieee-navy',
+  waiting: 'bg-gradient-gold text-ieee-navy',
+  active: 'bg-gradient-orange text-white',
+  passed: 'bg-gradient-green text-white',
+  rejected: 'bg-gradient-red text-white',
+  transferred: 'bg-gradient-cyan text-ieee-navy',
   neutral: 'bg-hairline text-ieee-gray',
 };
 

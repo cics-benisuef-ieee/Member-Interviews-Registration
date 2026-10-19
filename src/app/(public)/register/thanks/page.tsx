@@ -11,11 +11,11 @@ export default async function RegisterThanksPage({
   if (!n || !track) redirect('/register');
 
   return (
-    <div className="rounded-xl border border-hairline bg-white p-8 text-center shadow-sm">
+    <div className="rounded-xl border border-hairline bg-gradient-surface p-6 text-center shadow-card sm:p-8">
       <p className="text-xs font-bold tracking-widest text-ieee-blue uppercase">
         You’re registered
       </p>
-      <p className="mt-4 text-5xl font-bold text-ieee-navy">#{n}</p>
+      <p className="mt-4 bg-gradient-blue bg-clip-text text-5xl font-bold text-transparent">#{n}</p>
       <p className="mt-4 text-lg font-semibold text-ieee-navy">{track}</p>
       <p className="mt-2 text-sm text-ieee-gray">
         Please be at the interview area before your number is called. Keep this page available in

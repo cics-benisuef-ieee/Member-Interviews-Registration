@@ -10,11 +10,14 @@ interface QueueHeaderProps {
 export function QueueHeader({ board, waitingCount, finishedCount }: QueueHeaderProps) {
   return (
     <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
-      <div>
-        <p className="text-xs font-semibold tracking-widest text-ieee-blue uppercase">
-          Today’s queue · {formatDay(board.day)}
-        </p>
-        <h1 className="mt-1 text-2xl font-bold text-ieee-navy">{board.trackName}</h1>
+      <div className="flex items-stretch gap-3">
+        <span aria-hidden className="w-1 shrink-0 rounded-full bg-gradient-orange" />
+        <div>
+          <p className="text-xs font-semibold tracking-widest text-ieee-blue uppercase">
+            Today’s queue · {formatDay(board.day)}
+          </p>
+          <h1 className="mt-1 text-2xl font-bold text-ieee-navy">{board.trackName}</h1>
+        </div>
       </div>
 
       <div className="flex gap-2 text-sm">

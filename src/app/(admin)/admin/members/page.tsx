@@ -29,9 +29,27 @@ export default async function AdminMembersPage({
       <PageHeader title="Members" subtitle="Search, correct, or register members directly." />
 
       <div className="grid gap-6 lg:grid-cols-3">
-        <div className="space-y-4 lg:col-span-2">
+        {/* Search leads on every screen — it is the page's primary tool. */}
+        <div className="lg:col-span-2 lg:col-start-1 lg:row-start-1">
           <MemberSearchForm initialQuery={q} />
+        </div>
 
+        {/*
+          Registering is secondary. On phones the form sits between the search
+          and the member list, so it is never buried below a long list; on wider
+          screens it keeps its own column beside the list.
+        */}
+        <div className="lg:col-span-1 lg:col-start-3 lg:row-span-2 lg:row-start-1">
+          <Card>
+            <CardTitle>Register a member</CardTitle>
+            <CardSubtitle>Adds them to the chosen track&apos;s queue today.</CardSubtitle>
+            <div className="mt-4">
+              <MemberRegisterForm tracks={tracks} />
+            </div>
+          </Card>
+        </div>
+
+        <div className="space-y-4 lg:col-span-2 lg:col-start-1 lg:row-start-2">
           {members.length > 0 && (
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="flex flex-wrap items-center gap-2">
@@ -59,7 +77,7 @@ export default async function AdminMembersPage({
                 hint={
                   q
                     ? 'Try a different name, phone number, or email.'
-                    : 'Register the first member using the form on the right.'
+                    : 'Register the first member to fill this list.'
                 }
               />
             ) : (
@@ -69,16 +87,6 @@ export default async function AdminMembersPage({
                 ))}
               </ul>
             )}
-          </Card>
-        </div>
-
-        <div>
-          <Card>
-            <CardTitle>Register a member</CardTitle>
-            <CardSubtitle>Adds them to the chosen track&apos;s queue today.</CardSubtitle>
-            <div className="mt-4">
-              <MemberRegisterForm tracks={tracks} />
-            </div>
           </Card>
         </div>
       </div>

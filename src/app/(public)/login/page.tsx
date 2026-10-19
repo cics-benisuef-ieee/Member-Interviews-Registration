@@ -8,7 +8,7 @@ export default async function LoginPage({
   const { next } = await searchParams;
 
   return (
-    <div className="rounded-xl border border-hairline bg-white p-8 shadow-sm">
+    <div className="rounded-xl border border-hairline bg-gradient-surface p-6 shadow-card sm:p-8">
       <h1 className="text-2xl font-bold text-ieee-navy">Sign in</h1>
       <p className="mb-6 mt-1 text-sm text-ieee-gray">
         Track boards and chapter admins — sign in with your chapter account.

@@ -1,5 +1,5 @@
 import { HistoryFilters } from '@/components/features/admin/HistoryFilters';
-import { StatusBadge } from '@/components/features/queue/StatusBadge';
+import { HistoryCards, HistoryTable } from '@/components/features/admin/HistoryList';
 import { PageHeader } from '@/components/features/shared/PageHeader';
 import { Card } from '@/components/ui/Card';
 import { getHistory } from '@/domain/interviews/interview.service';
@@ -34,34 +34,15 @@ export default async function AdminHistoryPage({
               No interviews match these filters.
             </p>
           ) : (
-            <table className="w-full text-left">
-              <thead>
-                <tr className="border-b border-hairline text-xs tracking-wider text-ieee-gray uppercase">
-                  <th className="px-5 py-3">Day</th>
-                  <th className="px-5 py-3">#</th>
-                  <th className="px-5 py-3">Member</th>
-                  <th className="px-5 py-3">Track</th>
-                  <th className="px-5 py-3">Status</th>
-                  <th className="px-5 py-3">Sent to</th>
-                </tr>
-              </thead>
-              <tbody>
-                {entries.map((entry) => (
-                  <tr key={entry.id} className="border-b border-hairline text-sm last:border-b-0">
-                    <td className="px-5 py-3 text-ieee-gray">{entry.queueDay}</td>
-                    <td className="px-5 py-3 font-bold text-ieee-blue">{entry.queueNumber}</td>
-                    <td className="px-5 py-3 font-semibold text-ieee-navy">{entry.memberName}</td>
-                    <td className="px-5 py-3 text-ieee-gray">{entry.trackName}</td>
-                    <td className="px-5 py-3">
-                      <StatusBadge status={entry.status} />
-                    </td>
-                    <td className="px-5 py-3 text-ieee-gray">
-                      {entry.transferredToTrackName ?? '—'}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            <>
+              {/* Desktop: the full table. Mobile & tablet: one card per entry. */}
+              <div className="hidden lg:block">
+                <HistoryTable entries={entries} />
+              </div>
+              <div className="lg:hidden">
+                <HistoryCards entries={entries} />
+              </div>
+            </>
           )}
         </Card>
       </div>

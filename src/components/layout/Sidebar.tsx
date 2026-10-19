@@ -11,15 +11,17 @@ interface SidebarProps {
 
 export function Sidebar({ user, items }: SidebarProps) {
   return (
-    <aside className="flex h-full flex-col bg-ieee-navy text-white">
-      <div className="flex items-center gap-3 border-b border-white/10 p-5">
+    <aside className="flex h-full flex-col bg-gradient-navy text-white shadow-inset-sheen">
+      <span aria-hidden className="h-1 shrink-0 bg-gradient-orange" />
+
+      <div className="flex items-center gap-3 border-b border-white/10 p-5 pr-12 md:pr-5">
         <Image
           src="/logo.png"
           alt="CS/CIS Beni-Suef Chapter logo"
           width={48}
           height={48}
           priority
-          className="h-12 w-12 shrink-0 rounded-full"
+          className="h-12 w-12 shrink-0 rounded-full ring-2 ring-white/15"
         />
         <div className="min-w-0">
           <p className="text-[11px] font-semibold tracking-wider text-ieee-orange uppercase">

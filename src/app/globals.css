@@ -4,6 +4,26 @@
 
 @layer base {
   body {
-    @apply bg-surface text-ieee-navy antialiased;
+    @apply text-ieee-navy antialiased;
+    /* A soft brand wash instead of a flat page: cyan from the top-right,
+       deep blue from the bottom-left — bright tints over the pale surface. */
+    background-color: #f5f7fa;
+    background-image:
+      radial-gradient(1100px 560px at 100% -8%, rgba(0, 181, 226, 0.12), transparent 62%),
+      radial-gradient(900px 520px at -12% 108%, rgba(0, 98, 155, 0.1), transparent 60%);
+  }
+
+  /*
+   * Controls respond on the first tap instead of waiting for a possible
+   * double-tap zoom — notice the difference most on the live queue boards,
+   * where Pass / Reject are pressed in a hurry.
+   */
+  button,
+  a,
+  label,
+  input,
+  select,
+  textarea {
+    touch-action: manipulation;
   }
 }

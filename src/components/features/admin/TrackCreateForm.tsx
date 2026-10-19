@@ -13,13 +13,13 @@ export function TrackCreateForm() {
 
   return (
     <form action={formAction} className="flex flex-wrap items-end gap-3">
-      <div className="min-w-64 flex-1">
+      <div className="w-full flex-1 sm:min-w-64">
         <Field label="New track name">
           <Input name="name" required placeholder="e.g. Quantum Computing" />
         </Field>
       </div>
 
-      <Button type="submit" disabled={pending}>
+      <Button type="submit" disabled={pending} className="w-full sm:w-auto">
         {pending ? 'Adding…' : 'Add track'}
       </Button>
 

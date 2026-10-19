@@ -42,7 +42,7 @@ export function TrackBoardView({ board, otherTracks }: TrackBoardViewProps) {
             <NowServing entry={board.nowServing} availableTracks={otherTracks} />
           ) : (
             nextUp && (
-              <Card className="flex flex-wrap items-center justify-between gap-4 border-ieee-blue">
+              <Card className="flex flex-wrap items-center justify-between gap-4 border-ieee-blue shadow-raised">
                 <div>
                   <p className="text-xs font-bold tracking-widest text-ieee-blue uppercase">
                     Next up · #{nextUp.queueNumber}

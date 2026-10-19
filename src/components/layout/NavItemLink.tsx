@@ -15,7 +15,7 @@ export function NavItemLink({ item }: { item: NavItem }) {
       href={item.href}
       className={cn(
         'block rounded-lg px-3 py-2 text-sm font-semibold transition-colors',
-        isActive ? 'bg-ieee-orange text-ieee-navy' : 'text-white hover:bg-white/10',
+        isActive ? 'bg-gradient-gold text-ieee-navy shadow-sm' : 'text-white hover:bg-white/10',
       )}
     >
       {item.label}
