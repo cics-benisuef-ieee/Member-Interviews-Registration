@@ -49,15 +49,15 @@ Registers (public form or admin)
 
 ## Who does what
 
-| Step                      | Who                                                                                                                                       |
-| ------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
-| Register a member         | The member themselves (public form) or an admin                                                                                           |
-| Start / unstart           | The track's board (or an admin)                                                                                                           |
-| Score + recommend         | The track's board (or an admin)                                                                                                           |
-| Pass / reject             | The track's board, once the evaluation is done                                                                                            |
-| Send to another track     | The track's board, via "Send to another track"                                                                                            |
-| Fix a finished interview  | Any board ("Review" on the row), the admin members list (one review per track entry, transfers included), or an admin in `/admin/history` |
-| Edit a member's details   | Admin (`/admin/members`, or from a History review)                                                                                        |
-| Clear past members        | Admin (History page, "Clear past members")                                                                                                |
-| Choose who appears on /tv | Admin (`/admin/tracks`, "Show on TV")                                                                                                     |
-| Review what happened      | The track's board, or an admin (`/admin/history`)                                                                                         |
+| Step                      | Who                                                                                                                                                                            |
+| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Register a member         | The member themselves (public form) or an admin                                                                                                                                |
+| Start / unstart           | The track's board (or an admin)                                                                                                                                                |
+| Score + recommend         | The track's board (or an admin)                                                                                                                                                |
+| Pass / reject             | The track's board, once the evaluation is done                                                                                                                                 |
+| Send to another track     | The track's board, via "Send to another track"                                                                                                                                 |
+| Fix a finished interview  | Any board on its own track (the row's "Review", or `/board/history`), the admin members list (one review per track entry, transfers included), or an admin in `/admin/history` |
+| Edit a member's details   | Admin (`/admin/members`, or from a History review)                                                                                                                             |
+| Clear past members        | Admin (History page, "Clear past members")                                                                                                                                     |
+| Choose who appears on /tv | Admin (`/admin/tracks`, "Show on TV")                                                                                                                                          |
+| Review what happened      | A track in `/board/history` (its own track only), or an admin in `/admin/history` (everything)                                                                                 |

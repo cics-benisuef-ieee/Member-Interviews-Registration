@@ -90,10 +90,10 @@ Open http://localhost:3000 — visitors land on the registration form.
 
 ## Roles
 
-| Role        | Login                    | Can do                                                                                  |
-| ----------- | ------------------------ | --------------------------------------------------------------------------------------- |
-| Track board | `track-slug@your-domain` | See its own queue; start, pass, reject, transfer; correct or reopen finished interviews |
-| Admin       | `admin@your-domain`      | Everything: all queues, tracks, credentials, members, history                           |
+| Role        | Login                    | Can do                                                                                                                       |
+| ----------- | ------------------------ | ---------------------------------------------------------------------------------------------------------------------------- |
+| Track board | `track-slug@your-domain` | See its own queue; start, pass, reject, transfer; correct or reopen its own finished interviews today or in `/board/history` |
+| Admin       | `admin@your-domain`      | Everything: all queues, tracks, credentials, members, history                                                                |
 
 ## Project structure
 

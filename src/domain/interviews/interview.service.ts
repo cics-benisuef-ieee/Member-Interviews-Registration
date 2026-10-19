@@ -76,6 +76,25 @@ export async function getHistory(filters: {
   return { entries, day };
 }
 
+/**
+ * One track's own history, across every day.
+ *
+ * The track is passed in from the signed-in session, never from the address
+ * bar, so a board can only ever ask for its own interviews — and row-level
+ * security enforces the same thing at the database (0004). A `day` filter is
+ * still allowed for narrowing, because that one is only a convenience.
+ */
+export async function getTrackHistory(
+  trackId: string,
+  filters: { day?: string } = {},
+): Promise<{ entries: InterviewHistoryEntry[]; day: string }> {
+  const [day, entries] = await Promise.all([
+    interviewRepo.getQueueDay(),
+    interviewRepo.listHistory({ ...filters, trackId }),
+  ]);
+  return { entries, day };
+}
+
 /** Summaries for the public hall display — only tracks opted into /tv. */
 export async function getTvBoards(): Promise<{ day: string; boards: TvBoard[] }> {
   return interviewRepo.getTvBoards();

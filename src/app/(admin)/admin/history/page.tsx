@@ -40,7 +40,7 @@ export default async function AdminHistoryPage({
             </p>
           ) : (
             // Desktop: the full table. Mobile & tablet: one card per entry.
-            <HistoryList entries={entries} />
+            <HistoryList entries={entries} canEditMember />
           )}
         </Card>
       </div>

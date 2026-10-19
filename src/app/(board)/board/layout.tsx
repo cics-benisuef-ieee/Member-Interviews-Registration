@@ -6,7 +6,13 @@ export default async function BoardLayout({ children }: { children: React.ReactN
   const user = await requireTrackUser();
 
   return (
-    <AppShell user={user} navItems={[{ href: '/board', label: 'Today’s queue' }]}>
+    <AppShell
+      user={user}
+      navItems={[
+        { href: '/board', label: 'Today’s queue' },
+        { href: '/board/history', label: 'History' },
+      ]}
+    >
       {children}
     </AppShell>
   );

@@ -70,6 +70,11 @@ const board = createClient(SUPABASE_URL, SERVICE_KEY, {
   auth: { autoRefreshToken: false, persistSession: false },
 });
 
+/** A track's own shared login — used to prove what a board may and may not do. */
+const trackClient = createClient(SUPABASE_URL, SERVICE_KEY, {
+  auth: { autoRefreshToken: false, persistSession: false },
+});
+
 // ── Tiny assertion harness ─────────────────────────────────────────────────
 
 let passed = 0;
@@ -165,6 +170,8 @@ let scratchMemberId = null;
 let scratchInterviewId = null;
 let pastMemberId = null;
 let pastInterviewId = null;
+let ownedMemberId = null;
+let ownedInterviewId = null;
 
 try {
   // 0 · The deployed function must take drafts (0008+) and yet refuse them for
@@ -206,7 +213,7 @@ try {
   const { data: day } = await service.rpc('get_queue_day');
   const { data: track } = await service
     .from('tracks')
-    .select('id, name')
+    .select('id, name, slug')
     .eq('is_active', true)
     .order('name')
     .limit(1)
@@ -784,6 +791,143 @@ try {
       purgedSnapshot?.member_position === 'Still editable',
     editPurged.error?.message ?? JSON.stringify(purgedSnapshot),
   );
+
+  // 17 · A track account reviews and corrects its own interviews — the whole
+  //      point of the board history page — and is refused on another track's.
+  //      Row-level security (0004) and can_manage_interview (0005) both enforce
+  //      this; the page takes the track from the session, never the URL.
+  section('17 · A track reviews only its own interviews');
+
+  const { error: trackSignInError } = await trackClient.auth.signInWithPassword({
+    email: `${track.slug}@${EMAIL_DOMAIN}`,
+    password: SEED_PASSWORD,
+  });
+  check('the track login works', !trackSignInError, trackSignInError?.message);
+
+  // A finished interview of this track to correct. The scratch interview above
+  // was left mid-transfer, so this one is made fresh: registered, started,
+  // completed — all as this track's own login.
+  const { data: ownedMember } = await service
+    .from('members')
+    .insert({
+      full_name: 'Integration Test — Track Own',
+      email: 'itest-track-own@itest.local',
+      position: 'Track fixture',
+    })
+    .select('id')
+    .single();
+  ownedMemberId = ownedMember?.id ?? null;
+
+  const { data: ownedSlots } = await service
+    .from('interviews')
+    .select('queue_number')
+    .eq('track_id', track.id)
+    .eq('queue_day', day);
+  const ownedNumber = Math.max(0, ...(ownedSlots ?? []).map((row) => row.queue_number)) + 1;
+
+  const { data: ownedInterview } = await service
+    .from('interviews')
+    .insert({
+      member_id: ownedMemberId,
+      track_id: track.id,
+      queue_day: day,
+      queue_number: ownedNumber,
+      status: 'WAITING',
+    })
+    .select('id')
+    .single();
+  ownedInterviewId = ownedInterview?.id ?? null;
+
+  await trackClient.rpc('start_interview', { p_interview_id: ownedInterviewId });
+
+  // The track also writes the evaluation — the same save the board's form makes.
+  const ownedFields = completeFormFields({ note: 'Track review fixture' }).fields;
+  const ownedParsed = parseLikeTheApp(ownedInterviewId, ownedFields);
+  const trackSave = await saveOnServer(trackClient, ownedInterviewId, ownedParsed);
+  check(
+    'a track can save an evaluation on its own interview',
+    !trackSave.error,
+    trackSave.error?.message,
+  );
+
+  const trackFinish = await trackClient.rpc('complete_interview', {
+    p_interview_id: ownedInterviewId,
+    p_outcome: 'PASSED',
+  });
+  check(
+    'a track can start and finish its own interview',
+    !trackFinish.error,
+    trackFinish.error?.message,
+  );
+
+  // What the board history page reads: this track's interviews, this one among
+  // them, and never another track's.
+  const ownRead = await trackClient
+    .from('interviews')
+    .select('id, track_id, member_name')
+    .eq('id', ownedInterviewId)
+    .maybeSingle();
+  check(
+    'a track reads its own interview (the history page’s query)',
+    ownRead.data?.id === ownedInterviewId && ownRead.data?.track_id === track.id,
+    JSON.stringify(ownRead.data),
+  );
+
+  // The hand-off made earlier belongs to the other track — a real foreign row.
+  const { data: foreignInterview } = await service
+    .from('interviews')
+    .select('id, track_id')
+    .eq('transferred_from_id', scratchInterviewId)
+    .neq('track_id', track.id)
+    .limit(1)
+    .maybeSingle();
+
+  const foreignRead = foreignInterview?.id
+    ? await trackClient.from('interviews').select('id').eq('id', foreignInterview.id).maybeSingle()
+    : { data: null, error: null };
+  check(
+    'a track cannot read another track’s interview',
+    Boolean(foreignInterview?.id) && !foreignRead.data,
+    JSON.stringify({ foreign: foreignInterview, read: foreignRead.data }),
+  );
+
+  // A track may correct one of its own finished interviews: change the decision,
+  // the same call the board's review panel makes.
+  const trackChange = await trackClient.rpc('change_interview_outcome', {
+    p_interview_id: ownedInterviewId,
+    p_outcome: 'REJECTED',
+  });
+  const afterTrackChange = await readInterview(ownedInterviewId);
+  check(
+    'a track can change the outcome of its own interview',
+    !trackChange.error && afterTrackChange?.status === 'REJECTED',
+    trackChange.error?.message ?? JSON.stringify(afterTrackChange),
+  );
+
+  // …but not one belonging to another track, even if it guessed the id.
+  const foreignChange = foreignInterview?.id
+    ? await trackClient.rpc('change_interview_outcome', {
+        p_interview_id: foreignInterview.id,
+        p_outcome: 'REJECTED',
+      })
+    : { error: { message: 'no other track interview to test with' } };
+  check(
+    'a track cannot change another track’s interview',
+    Boolean(foreignChange.error && foreignChange.error.message.includes('not allowed to manage')),
+    foreignChange.error?.message ?? 'the database allowed it',
+  );
+
+  // And it may not rewrite the member record — that stays admin-only, which is
+  // why the board's review panel renders the member details read-only.
+  const trackMemberEdit = await trackClient.rpc('update_member_details', {
+    p_member_id: ownedMemberId,
+    p_full_name: 'Track Overwrite Attempt',
+  });
+  check(
+    'a track cannot edit the shared member record',
+    Boolean(trackMemberEdit.error),
+    trackMemberEdit.error?.message ?? 'the database allowed it',
+  );
 } catch (error) {
   failed += 1;
   console.error(`\nUnexpected failure: ${error.message ?? error}`);
@@ -805,15 +949,20 @@ try {
   if (pastMemberId) {
     await service.from('members').delete().eq('id', pastMemberId);
   }
+  if (ownedInterviewId) {
+    await service.from('audit_log').delete().eq('interview_id', ownedInterviewId);
+    await service.from('interviews').delete().eq('id', ownedInterviewId);
+  }
+  if (ownedMemberId) {
+    await service.from('members').delete().eq('id', ownedMemberId);
+  }
 
-  const { data: leftovers } = await service
-    .from('interviews')
-    .select('id')
-    .in(
-      'id',
-      [scratchInterviewId, pastInterviewId].filter((id) => id !== null),
-    );
-  const clean = (leftovers ?? []).length === 0 && scratchMemberId !== null;
+  const trackedIds = [scratchInterviewId, pastInterviewId, ownedInterviewId].filter(
+    (id) => id !== null,
+  );
+  const { data: leftovers } = await service.from('interviews').select('id').in('id', trackedIds);
+  const clean =
+    (leftovers ?? []).length === 0 && scratchMemberId !== null && ownedMemberId !== null;
   check('scratch data cleaned up', clean);
 }
 

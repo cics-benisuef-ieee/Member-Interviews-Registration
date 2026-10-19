@@ -9,8 +9,17 @@ import { HistoryEntryRow } from './HistoryEntryRow';
  *
  * The table is wrapped in a horizontal scroller as a last-resort guard, but the
  * cards are the intended small-screen experience.
+ *
+ * `canEditMember` follows the viewer: an admin may correct the member record
+ * from here, a track board reads it but cannot change it.
  */
-export function HistoryList({ entries }: { entries: InterviewHistoryEntry[] }) {
+export function HistoryList({
+  entries,
+  canEditMember = false,
+}: {
+  entries: InterviewHistoryEntry[];
+  canEditMember?: boolean;
+}) {
   return (
     <>
       <div className="hidden overflow-x-auto lg:block">
@@ -28,7 +37,7 @@ export function HistoryList({ entries }: { entries: InterviewHistoryEntry[] }) {
           </thead>
           <tbody>
             {entries.map((entry) => (
-              <HistoryEntryRow key={entry.id} entry={entry} />
+              <HistoryEntryRow key={entry.id} entry={entry} canEditMember={canEditMember} />
             ))}
           </tbody>
         </table>
@@ -36,7 +45,7 @@ export function HistoryList({ entries }: { entries: InterviewHistoryEntry[] }) {
 
       <ul className="divide-y divide-hairline lg:hidden">
         {entries.map((entry) => (
-          <HistoryEntryCard key={entry.id} entry={entry} />
+          <HistoryEntryCard key={entry.id} entry={entry} canEditMember={canEditMember} />
         ))}
       </ul>
     </>

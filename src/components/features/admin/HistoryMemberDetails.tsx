@@ -9,11 +9,21 @@ import { MemberEditForm } from './MemberEditForm';
 
 /**
  * The member behind a history entry: their saved details, read-only until an
- * admin opens the editor. Editing writes to the shared member record — the same
- * one the members list edits — so a correction here shows up everywhere, and it
- * still works after the member row itself has been purged.
+ * admin opens the editor.
+ *
+ * Editing writes to the shared member record — the same one the members list
+ * edits — so a correction here shows up everywhere, and it still works after
+ * the member row itself has been purged. A track board reads the same details
+ * to call the member in, but only an admin may change them, so `canEdit` is
+ * false there and the edit button is not rendered.
  */
-export function HistoryMemberDetails({ entry }: { entry: InterviewHistoryEntry }) {
+export function HistoryMemberDetails({
+  entry,
+  canEdit = false,
+}: {
+  entry: InterviewHistoryEntry;
+  canEdit?: boolean;
+}) {
   const [editing, setEditing] = useState(false);
 
   const member: Member = {
@@ -39,19 +49,21 @@ export function HistoryMemberDetails({ entry }: { entry: InterviewHistoryEntry }
           {member.notes && <p className="mt-1 text-sm text-ieee-gray italic">{member.notes}</p>}
         </div>
 
-        <Button
-          type="button"
-          size="sm"
-          variant="ghost"
-          aria-expanded={editing}
-          onClick={() => setEditing((open) => !open)}
-        >
-          <Pencil className="h-3.5 w-3.5" />
-          {editing ? 'Close' : 'Edit member'}
-        </Button>
+        {canEdit && (
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            aria-expanded={editing}
+            onClick={() => setEditing((open) => !open)}
+          >
+            <Pencil className="h-3.5 w-3.5" />
+            {editing ? 'Close' : 'Edit member'}
+          </Button>
+        )}
       </div>
 
-      {editing && (
+      {canEdit && editing && (
         <div className="mt-3">
           <MemberEditForm member={member} onDone={() => setEditing(false)} />
         </div>

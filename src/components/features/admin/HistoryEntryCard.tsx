@@ -8,7 +8,13 @@ import { useState } from 'react';
 import { HistoryEntryReview } from './HistoryEntryReview';
 
 /** One history entry as a card, expanding into its review panel. */
-export function HistoryEntryCard({ entry }: { entry: InterviewHistoryEntry }) {
+export function HistoryEntryCard({
+  entry,
+  canEditMember = false,
+}: {
+  entry: InterviewHistoryEntry;
+  canEditMember?: boolean;
+}) {
   const [open, setOpen] = useState(false);
 
   return (
@@ -44,7 +50,7 @@ export function HistoryEntryCard({ entry }: { entry: InterviewHistoryEntry }) {
 
       {open && (
         <div className="mt-3 border-t border-hairline pt-3">
-          <HistoryEntryReview entry={entry} />
+          <HistoryEntryReview entry={entry} canEditMember={canEditMember} />
         </div>
       )}
     </li>

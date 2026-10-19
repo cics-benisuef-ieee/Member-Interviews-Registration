@@ -5,7 +5,7 @@
 | Role                       | How they sign in       | Reach                                                           |
 | -------------------------- | ---------------------- | --------------------------------------------------------------- |
 | Anonymous visitor          | none                   | Registration form only: reads active tracks, registers a member |
-| Track board (`COMMITTEE`)  | shared login per track | Its own track's queue, read + state changes                     |
+| Track board (`COMMITTEE`)  | shared login per track | Its own track's queue and history, read + state changes         |
 | Admin (`ADMIN`)            | one admin login        | Everything                                                      |
 | Secret key (`sb_secret_…`) | server-only            | Credential management; never exposed to the browser             |
 

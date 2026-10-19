@@ -15,13 +15,15 @@ import { evaluationFromFormData } from '@/domain/interviews/evaluation.schema';
 import { actionFailed, type ActionState } from '@/lib/action-state';
 
 /**
- * The same queue is rendered in three places: a track's own board, the board an
- * admin opens from the overview, and the members list (whose chips show where
- * each member stands). The public /tv display quotes it too. All must refresh
- * after any change, or one of them would keep showing a stale queue.
+ * The same queue is rendered in several places: a track's own board and its
+ * history, the board an admin opens from the overview, the admin members list
+ * (whose chips show where each member stands), and admin history. The public
+ * /tv display quotes it too. All must refresh after any change, or one of them
+ * would keep showing a stale queue.
  */
 function revalidateQueueViews(): void {
   revalidatePath('/board');
+  revalidatePath('/board/history');
   revalidatePath('/admin/tracks/[trackId]', 'page');
   revalidatePath('/admin/members');
   revalidatePath('/admin/history');

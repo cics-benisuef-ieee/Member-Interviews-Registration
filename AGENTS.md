@@ -18,7 +18,7 @@ Interview queue for an IEEE chapter: public registration → per-track daily que
 
 - `src/middleware.ts` must live under `src/`; a root-level copy is silently ignored.
 - Server actions return `{ error }` via `actionFailed` instead of throwing — throwing replaces the live board with the error boundary mid-interview.
-- The queue renders on `/board`, `/admin/tracks/[trackId]`, `/admin/members` and `/tv`; call `revalidateQueueViews()` after any change.
+- The queue renders on `/board`, `/board/history`, `/admin/tracks/[trackId]`, `/admin/members`, `/admin/history` and `/tv`; call `revalidateQueueViews()` after any change.
 - Migrations are applied by hand in the Supabase SQL editor in numeric order: `0001`–`0004` are one-shot; `0005`+ are `create or replace` and safe to re-run. Interview writes go through security-definer DB functions, never direct table writes.
 - `createAdminClient()` bypasses RLS (secret key) — credential management only; user-facing data uses `createClient()` (publishable key + RLS).
 - Import alias `@/*` → `src/*`. `build/` is gitignored scratch output from the test compile.

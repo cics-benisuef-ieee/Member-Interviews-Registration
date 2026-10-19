@@ -9,10 +9,17 @@ interface HistoryFilterProps {
   tracks: { id: string; name: string }[];
   selectedTrackId: string;
   selectedDay: string;
+  /** Where to send the filters; admin and board each have their own history. */
+  action?: string;
 }
 
 /** History filters — write their state into the URL so views are shareable. */
-export function HistoryFilters({ tracks, selectedTrackId, selectedDay }: HistoryFilterProps) {
+export function HistoryFilters({
+  tracks,
+  selectedTrackId,
+  selectedDay,
+  action = '/admin/history',
+}: HistoryFilterProps) {
   const router = useRouter();
   const [trackId, setTrackId] = useState(selectedTrackId);
   const [day, setDay] = useState(selectedDay);
@@ -22,7 +29,7 @@ export function HistoryFilters({ tracks, selectedTrackId, selectedDay }: History
     const params = new URLSearchParams();
     if (trackId) params.set('track', trackId);
     if (day) params.set('day', day);
-    router.push(`/admin/history?${params.toString()}`);
+    router.push(`${action}?${params.toString()}`);
   }
 
   return (

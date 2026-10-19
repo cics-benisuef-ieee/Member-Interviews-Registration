@@ -8,7 +8,13 @@ import { useState } from 'react';
 import { HistoryEntryReview } from './HistoryEntryReview';
 
 /** One history entry as a table row, expanding into its review panel. */
-export function HistoryEntryRow({ entry }: { entry: InterviewHistoryEntry }) {
+export function HistoryEntryRow({
+  entry,
+  canEditMember = false,
+}: {
+  entry: InterviewHistoryEntry;
+  canEditMember?: boolean;
+}) {
   const [open, setOpen] = useState(false);
 
   return (
@@ -39,7 +45,7 @@ export function HistoryEntryRow({ entry }: { entry: InterviewHistoryEntry }) {
       {open && (
         <tr className="border-b border-hairline bg-surface/50">
           <td colSpan={7} className="px-5 py-4">
-            <HistoryEntryReview entry={entry} />
+            <HistoryEntryReview entry={entry} canEditMember={canEditMember} />
           </td>
         </tr>
       )}
