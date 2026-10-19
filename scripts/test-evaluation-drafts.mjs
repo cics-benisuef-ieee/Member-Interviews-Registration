@@ -1,5 +1,6 @@
 // ============================================================================
-// Integration test for evaluation drafts (migration 0008 + the app layers).
+// Integration test for evaluation drafts, post-finish editing, and the member
+// snapshot (migrations 0008 + 0009 + 0010 + the app layers).
 //
 // It exercises the real path a committee member takes on the board:
 //
@@ -162,10 +163,12 @@ function completeFormFields({ note, recommendation = 'ACCEPTED' }) {
 
 let scratchMemberId = null;
 let scratchInterviewId = null;
+let pastMemberId = null;
+let pastInterviewId = null;
 
 try {
-  // 0 · The deployed function must be the 0008 one — an empty evaluation on an
-  //     id that cannot exist passes validation (0008) or is refused (0007).
+  // 0 · The deployed function must take drafts (0008+) and yet refuse them for
+  //     want of permission on an id that cannot exist, not for its status.
   section('0 · Migration state');
   const probe = await service.rpc('save_interview_evaluation', {
     p_interview_id: '00000000-0000-0000-0000-000000000000',
@@ -174,11 +177,20 @@ try {
   });
   const probeMessage = probe.error?.message ?? '';
   check(
-    'migration 0008 is applied (empty evaluation is not refused)',
+    'migration 0009 is applied (a draft is validated, then permission is refused)',
     probeMessage.includes('not allowed to manage'),
     probeMessage
-      ? `the database said "${probeMessage}" — run supabase/migrations/0008_evaluation_drafts.sql in the SQL editor`
+      ? `the database said "${probeMessage}" — run supabase/migrations/0009_post_finish_editing.sql in the SQL editor`
       : 'unexpected success for a non-existent interview',
+  );
+
+  const snapshotProbe = await service.from('interviews').select('member_ref').limit(1);
+  check(
+    'migration 0010 is applied (interviews carry a member snapshot)',
+    !snapshotProbe.error,
+    snapshotProbe.error
+      ? `${snapshotProbe.error.message} — run supabase/migrations/0010_member_history.sql in the SQL editor`
+      : '',
   );
 
   // 1 · Sign in as the admin login the seed script created.
@@ -487,13 +499,148 @@ try {
 
   const afterFinish = await saveOnServer(board, scratchInterviewId, completeParsed);
   check(
-    'a finished interview can no longer be edited',
-    afterFinish.error?.message?.includes('only be edited while the interview is open') === true,
-    afterFinish.error?.message ?? 'it succeeded',
+    'a finished interview can be edited',
+    !afterFinish.error && afterFinish.data === completeTotal,
+    afterFinish.error?.message ?? `got ${afterFinish.data}`,
   );
 
-  // 10 · The audit trail says which saves were drafts.
-  section('10 · Audit trail');
+  const { data: revisionAudits } = await service
+    .from('audit_log')
+    .select('detail')
+    .eq('interview_id', scratchInterviewId)
+    .eq('action', 'EVALUATION_SAVED')
+    .order('created_at', { ascending: false })
+    .limit(1);
+  check(
+    'the revision is audited with the status it corrected',
+    revisionAudits?.[0]?.detail?.status === 'PASSED',
+    JSON.stringify(revisionAudits?.[0]?.detail),
+  );
+
+  // 10 · The decision itself can be swapped, in either direction.
+  section('10 · Changing the decision');
+  const reject = await board.rpc('change_interview_outcome', {
+    p_interview_id: scratchInterviewId,
+    p_outcome: 'REJECTED',
+  });
+  row = await readInterview(scratchInterviewId);
+  check(
+    'PASSED → REJECTED works',
+    !reject.error && row.status === 'REJECTED',
+    reject.error?.message ?? `status ${row.status}`,
+  );
+
+  const sameDecision = await board.rpc('change_interview_outcome', {
+    p_interview_id: scratchInterviewId,
+    p_outcome: 'REJECTED',
+  });
+  check(
+    'changing to the same decision is a no-op',
+    !sameDecision.error,
+    sameDecision.error?.message,
+  );
+
+  const pass = await board.rpc('change_interview_outcome', {
+    p_interview_id: scratchInterviewId,
+    p_outcome: 'PASSED',
+  });
+  row = await readInterview(scratchInterviewId);
+  check('REJECTED → PASSED works', !pass.error && row.status === 'PASSED', pass.error?.message);
+
+  // 11 · Reopening puts the member back in the queue with the evaluation intact.
+  section('11 · Reopening a finished interview');
+  const reopen = await board.rpc('reopen_interview', { p_interview_id: scratchInterviewId });
+  row = await readInterview(scratchInterviewId);
+  check(
+    'a finished interview reopens as WAITING',
+    !reopen.error && row.status === 'WAITING' && row.finished_at === null,
+    reopen.error?.message ?? `status ${row.status}`,
+  );
+  check(
+    'reopening keeps the evaluation',
+    row.overall_total === completeTotal,
+    `got ${row.overall_total}`,
+  );
+
+  const reopenAgain = await board.rpc('reopen_interview', { p_interview_id: scratchInterviewId });
+  check(
+    'an open interview cannot be reopened',
+    reopenAgain.error?.message?.includes('Only a finished interview') === true,
+    reopenAgain.error?.message ?? 'it succeeded',
+  );
+
+  const changeOpen = await board.rpc('change_interview_outcome', {
+    p_interview_id: scratchInterviewId,
+    p_outcome: 'PASSED',
+  });
+  check(
+    'a decision can only be changed on a finished interview',
+    changeOpen.error?.message?.includes('Only a finished pass or reject') === true,
+    changeOpen.error?.message ?? 'it succeeded',
+  );
+
+  // 12 · A transfer can be cancelled until the receiving track acts.
+  section('12 · Reopening a transfer');
+  const { data: activeTracks } = await service
+    .from('tracks')
+    .select('id, name')
+    .eq('is_active', true)
+    .order('name')
+    .limit(2);
+  const target = (activeTracks ?? []).find((candidate) => candidate.id !== track.id);
+
+  if (!target) {
+    check('a second active track exists for the transfer checks', false, 'only one active track');
+  } else {
+    const childOf = async () => {
+      const { data } = await service
+        .from('interviews')
+        .select('id, status, started_at')
+        .eq('transferred_from_id', scratchInterviewId)
+        .maybeSingle();
+      return data;
+    };
+
+    await board.rpc('start_interview', { p_interview_id: scratchInterviewId });
+    const handOff = await board.rpc('complete_interview', {
+      p_interview_id: scratchInterviewId,
+      p_outcome: 'TRANSFER',
+      p_target_track_id: target.id,
+    });
+    const firstChild = await childOf();
+    check(
+      'the hand-off lands in the target queue as WAITING',
+      !handOff.error && firstChild?.status === 'WAITING' && firstChild.started_at === null,
+      handOff.error?.message,
+    );
+
+    const cancel = await board.rpc('reopen_interview', { p_interview_id: scratchInterviewId });
+    check(
+      'reopening cancels an untouched hand-off',
+      !cancel.error && (await childOf()) === null,
+      cancel.error?.message,
+    );
+
+    // Land a fresh hand-off, then let the target start the member.
+    await board.rpc('start_interview', { p_interview_id: scratchInterviewId });
+    await board.rpc('complete_interview', {
+      p_interview_id: scratchInterviewId,
+      p_outcome: 'TRANSFER',
+      p_target_track_id: target.id,
+    });
+    const secondChild = await childOf();
+    await board.rpc('start_interview', { p_interview_id: secondChild?.id });
+
+    const blocked = await board.rpc('reopen_interview', { p_interview_id: scratchInterviewId });
+    check(
+      'a hand-off already started by the target cannot be cancelled',
+      blocked.error?.message?.includes('already started') === true,
+      blocked.error?.message ?? 'it succeeded',
+    );
+  }
+
+  // 13 · The audit trail says which saves were drafts.
+  section('13 · Audit trail');
   const { data: audits } = await service
     .from('audit_log')
     .select('action, detail')
@@ -509,23 +656,163 @@ try {
     'the complete save is marked complete: true',
     details.some((d) => d?.complete === true),
   );
+
+  // 14 · The member snapshot travels with the interview (0010).
+  section('14 · Member snapshot on the interview');
+  const { data: snapshotted, error: snapshotError } = await service
+    .from('interviews')
+    .select('member_id, member_ref, member_name, member_phone, member_position')
+    .eq('id', scratchInterviewId)
+    .single();
+  check(
+    'the interview snapshots the member on insert',
+    !snapshotError &&
+      snapshotted.member_ref === scratchMemberId &&
+      snapshotted.member_name === 'Integration Test — Drafts' &&
+      snapshotted.member_phone === '+20 100 000 0000' &&
+      snapshotted.member_position === 'Test fixture',
+    snapshotError?.message ?? JSON.stringify(snapshotted),
+  );
+
+  // 15 · Editing a member (from the members list or a history review) keeps the
+  //      shared row and every snapshot in step.
+  section('15 · Editing member details');
+  const editMember = await board.rpc('update_member_details', {
+    p_member_id: scratchMemberId,
+    p_full_name: 'Integration Test — Renamed',
+    p_phone: '+20 111 111 1111',
+    p_email: 'itest-renamed@itest.local',
+    p_position: 'Renamed fixture',
+    p_notes: 'Edited by the integration test.',
+  });
+  const { data: afterMember } = await service
+    .from('members')
+    .select('full_name, phone, position')
+    .eq('id', scratchMemberId)
+    .single();
+  const { data: afterSnapshot } = await service
+    .from('interviews')
+    .select('member_name, member_phone, member_position')
+    .eq('id', scratchInterviewId)
+    .single();
+  check(
+    'the members row and the snapshot are edited together',
+    !editMember.error &&
+      afterMember?.full_name === 'Integration Test — Renamed' &&
+      afterMember?.position === 'Renamed fixture' &&
+      afterSnapshot?.member_name === 'Integration Test — Renamed' &&
+      afterSnapshot?.member_phone === '+20 111 111 1111',
+    editMember.error?.message ?? JSON.stringify({ afterMember, afterSnapshot }),
+  );
+
+  const badName = await board.rpc('update_member_details', {
+    p_member_id: scratchMemberId,
+    p_full_name: 'x',
+  });
+  check(
+    'a too-short name is refused',
+    badName.error?.message?.includes('at least 2 characters') === true,
+    badName.error?.message ?? 'it succeeded',
+  );
+
+  // 16 · Removing a member keeps earlier days: the interview survives, its
+  //      snapshot intact, and stays editable from history (0010).
+  section('16 · Member delete keeps earlier history');
+  const yesterday = new Date(`${day}T00:00:00Z`);
+  yesterday.setUTCDate(yesterday.getUTCDate() - 1);
+  const pastDay = yesterday.toISOString().slice(0, 10);
+
+  const { data: pastMember } = await service
+    .from('members')
+    .insert({
+      full_name: 'Integration Test — Past',
+      email: 'itest-past@itest.local',
+      position: 'Past fixture',
+    })
+    .select('id')
+    .single();
+  pastMemberId = pastMember?.id ?? null;
+
+  const { data: pastInterview } = await service
+    .from('interviews')
+    .insert({
+      member_id: pastMemberId,
+      track_id: track.id,
+      queue_day: pastDay,
+      queue_number: 1,
+      status: 'PASSED',
+    })
+    .select('id')
+    .single();
+  pastInterviewId = pastInterview?.id ?? null;
+
+  const remove = await board.rpc('delete_members', { p_member_ids: [pastMemberId] });
+  const { data: survivingInterview } = await service
+    .from('interviews')
+    .select('id, member_id, member_ref, member_name')
+    .eq('id', pastInterviewId)
+    .maybeSingle();
+  const { data: goneMember } = await service
+    .from('members')
+    .select('id')
+    .eq('id', pastMemberId)
+    .maybeSingle();
+  check(
+    "deleting a member drops the row but keeps the earlier day's interview",
+    !remove.error &&
+      goneMember === null &&
+      survivingInterview?.member_ref === pastMemberId &&
+      survivingInterview?.member_name === 'Integration Test — Past' &&
+      survivingInterview?.member_id === null,
+    remove.error?.message ?? JSON.stringify({ goneMember, survivingInterview }),
+  );
+
+  const editPurged = await board.rpc('update_member_details', {
+    p_member_id: pastMemberId,
+    p_full_name: 'Integration Test — Past Renamed',
+    p_position: 'Still editable',
+  });
+  const { data: purgedSnapshot } = await service
+    .from('interviews')
+    .select('member_name, member_position')
+    .eq('id', pastInterviewId)
+    .single();
+  check(
+    'a purged member’s snapshot stays editable from history',
+    !editPurged.error &&
+      purgedSnapshot?.member_name === 'Integration Test — Past Renamed' &&
+      purgedSnapshot?.member_position === 'Still editable',
+    editPurged.error?.message ?? JSON.stringify(purgedSnapshot),
+  );
 } catch (error) {
   failed += 1;
   console.error(`\nUnexpected failure: ${error.message ?? error}`);
 } finally {
   // ── Cleanup: only ever our own scratch rows ─────────────────────────────
-  if (scratchInterviewId) {
-    await service.from('audit_log').delete().eq('interview_id', scratchInterviewId);
-    await service.from('interviews').delete().eq('id', scratchInterviewId);
-  }
   if (scratchMemberId) {
+    // The member delete path now keeps earlier days, so clear the scratch
+    // interview explicitly before removing the member.
+    await service.from('interviews').delete().eq('member_ref', scratchMemberId);
+    await service
+      .from('audit_log')
+      .delete()
+      .eq('interview_id', scratchInterviewId ?? '');
     await service.from('members').delete().eq('id', scratchMemberId);
+  }
+  if (pastInterviewId) {
+    await service.from('interviews').delete().eq('id', pastInterviewId);
+  }
+  if (pastMemberId) {
+    await service.from('members').delete().eq('id', pastMemberId);
   }
 
   const { data: leftovers } = await service
     .from('interviews')
     .select('id')
-    .eq('id', scratchInterviewId ?? '00000000-0000-0000-0000-000000000000');
+    .in(
+      'id',
+      [scratchInterviewId, pastInterviewId].filter((id) => id !== null),
+    );
   const clean = (leftovers ?? []).length === 0 && scratchMemberId !== null;
   check('scratch data cleaned up', clean);
 }

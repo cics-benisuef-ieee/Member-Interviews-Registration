@@ -15,6 +15,7 @@
     "db:password": "node --env-file=.env scripts/change-password.mjs",
     "db:demo": "node --env-file=.env scripts/demo-data.mjs",
     "db:clear": "node --env-file=.env scripts/clear-data.mjs",
+    "db:purge-past": "node --env-file=.env scripts/purge-past-members.mjs",
     "db:test-evaluation": "node --env-file=.env scripts/test-evaluation-drafts.mjs",
     "db:types": "supabase gen types typescript --local > src/types/database.ts"
   },

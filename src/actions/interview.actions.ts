@@ -3,7 +3,9 @@
 import { revalidatePath } from 'next/cache';
 import { requireBoardUser } from '@/domain/auth/guards';
 import {
+  changeInterviewOutcome,
   finishInterview,
+  reopenInterview,
   saveInterviewEvaluation,
   startInterview,
   transferInterview,
@@ -22,6 +24,7 @@ function revalidateQueueViews(): void {
   revalidatePath('/board');
   revalidatePath('/admin/tracks/[trackId]', 'page');
   revalidatePath('/admin/members');
+  revalidatePath('/admin/history');
   revalidatePath('/tv');
 }
 
@@ -178,6 +181,52 @@ export async function transferInterviewAction(
     });
   } catch (error) {
     return actionFailed(error, 'Transfer failed. Try again.');
+  }
+
+  revalidateQueueViews();
+  return { error: null };
+}
+
+/** PASSED ⇄ REJECTED on a finished interview (board or admin). */
+export async function changeInterviewOutcomeAction(
+  _prevState: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  await requireBoardUser();
+
+  const outcome = String(formData.get('outcome') ?? '');
+  if (outcome !== 'PASSED' && outcome !== 'REJECTED') {
+    return { error: 'Choose pass or reject.' };
+  }
+
+  try {
+    await changeInterviewOutcome({
+      interviewId: String(formData.get('interviewId') ?? ''),
+      outcome,
+    });
+  } catch (error) {
+    return actionFailed(error, 'Could not change the outcome.');
+  }
+
+  revalidateQueueViews();
+  return { error: null };
+}
+
+/**
+ * A finished interview back to WAITING. For a transfer, the database cancels
+ * the receiving entry when it has not been touched yet and reports why when
+ * it has.
+ */
+export async function reopenInterviewAction(
+  _prevState: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  await requireBoardUser();
+
+  try {
+    await reopenInterview(String(formData.get('interviewId') ?? ''));
+  } catch (error) {
+    return actionFailed(error, 'Could not reopen this interview.');
   }
 
   revalidateQueueViews();

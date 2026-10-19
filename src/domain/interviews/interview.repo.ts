@@ -135,6 +135,8 @@ const INTERVIEWER_ACTIONS = [
   'EVALUATION_SAVED',
   'COMPLETED',
   'TRANSFERRED',
+  'OUTCOME_CHANGED',
+  'REOPENED',
 ];
 
 /** One of a member's queue entries for today, as the members list shows it. */
@@ -149,6 +151,8 @@ export interface TodayInterviewDetail {
   transferredFromId: string | null;
   overallTotal: number | null;
   recommendation: Recommendation | null;
+  /** The full evaluation, so this entry can be reviewed and corrected in place. */
+  evaluation: InterviewEvaluation | null;
   /** Distinct display names of everyone who acted on this interview. */
   interviewers: string[];
 }
@@ -173,7 +177,8 @@ export async function listTodayInterviewDetails(
     .from('interviews')
     .select(
       `id, member_id, queue_number, status, track_id, started_at, finished_at,
-       transferred_from_id, overall_total, recommendation,
+       transferred_from_id,
+       ${EVALUATION_SELECT},
        tracks!inner ( id, name )`,
     )
     .eq('queue_day', day)
@@ -191,8 +196,11 @@ export async function listTodayInterviewDetails(
     started_at: string | null;
     finished_at: string | null;
     transferred_from_id: string | null;
+    evaluation: StoredEvaluation | null;
     overall_total: number | null;
     recommendation: Recommendation | null;
+    final_notes: string | null;
+    evaluation_updated_at: string | null;
     tracks: { id: string; name: string } | null;
   }[];
 
@@ -210,6 +218,7 @@ export async function listTodayInterviewDetails(
       transferredFromId: row.transferred_from_id,
       overallTotal: row.overall_total,
       recommendation: row.recommendation,
+      evaluation: toEvaluation(row),
       interviewers: interviewers.get(row.id) ?? [],
     };
 
@@ -252,6 +261,27 @@ async function listInterviewerNames(interviewIds: string[]): Promise<Map<string,
   }
 
   return result;
+}
+
+/**
+ * The durable identities of everyone queued on a day. The members list is
+ * scoped to today with this, so a member from a finished day stops appearing
+ * there and lives on in history instead.
+ */
+export async function listMemberRefsForDay(day: string): Promise<string[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from('interviews')
+    .select('member_ref')
+    .eq('queue_day', day);
+
+  if (error) throw new Error(`Could not load today's members: ${error.message}`);
+
+  const refs = new Set<string>();
+  for (const row of (data ?? []) as { member_ref: string | null }[]) {
+    if (row.member_ref) refs.add(row.member_ref);
+  }
+  return [...refs];
 }
 
 /** Names of the source tracks for entries that were transferred in. */
@@ -343,7 +373,10 @@ export async function listHistory(filters: {
   let query = supabase
     .from('interviews')
     .select(
-      'id, queue_day, queue_number, status, started_at, finished_at, members ( full_name ), tracks!inner ( name )',
+      `id, track_id, queue_day, queue_number, status, started_at, finished_at,
+       member_ref, member_name, member_phone, member_email, member_position, member_notes,
+       ${EVALUATION_SELECT},
+       members ( full_name ), tracks!inner ( name )`,
     )
     .order('queue_day', { ascending: false })
     .order('queue_number')
@@ -365,11 +398,23 @@ export async function listHistory(filters: {
 
   const rows = (data ?? []) as unknown as {
     id: string;
+    track_id: string;
     queue_day: string;
     queue_number: number;
     status: InterviewHistoryEntry['status'];
     started_at: string | null;
     finished_at: string | null;
+    member_ref: string;
+    member_name: string | null;
+    member_phone: string | null;
+    member_email: string | null;
+    member_position: string | null;
+    member_notes: string | null;
+    evaluation: StoredEvaluation | null;
+    overall_total: number | null;
+    recommendation: Recommendation | null;
+    final_notes: string | null;
+    evaluation_updated_at: string | null;
     members: { full_name: string } | null;
     tracks: { name: string } | null;
   }[];
@@ -383,9 +428,18 @@ export async function listHistory(filters: {
     status: row.status,
     startedAt: row.started_at,
     finishedAt: row.finished_at,
+    trackId: row.track_id,
     trackName: row.tracks?.name ?? 'Unknown track',
-    memberName: row.members?.full_name ?? 'Unknown member',
+    memberRef: row.member_ref,
+    // The snapshot is authoritative; the join is a fallback for rows written
+    // before 0010 backfilled them.
+    memberName: row.member_name ?? row.members?.full_name ?? 'Unknown member',
+    memberPhone: row.member_phone,
+    memberEmail: row.member_email,
+    memberPosition: row.member_position,
+    memberNotes: row.member_notes,
     transferredToTrackName: transferTargets.get(row.id) ?? null,
+    evaluation: toEvaluation(row),
   }));
 }
 
@@ -468,6 +522,36 @@ export async function rpcCompleteInterview(params: {
     p_outcome: params.outcome,
     p_target_track_id: params.targetTrackId ?? null,
     p_notes: params.notes ?? null,
+  });
+
+  if (error) throw new Error(error.message);
+}
+
+/** Swaps a decided interview between PASSED and REJECTED (0009). */
+export async function rpcChangeInterviewOutcome(
+  interviewId: string,
+  outcome: Extract<InterviewOutcome, 'PASSED' | 'REJECTED'>,
+): Promise<void> {
+  const supabase = await createClient();
+
+  const { error } = await supabase.rpc('change_interview_outcome', {
+    p_interview_id: interviewId,
+    p_outcome: outcome,
+  });
+
+  if (error) throw new Error(error.message);
+}
+
+/**
+ * Puts a finished interview back in its track's queue as WAITING (0009).
+ * A transfer's receiving entry is cancelled by the database when it has not
+ * been touched yet.
+ */
+export async function rpcReopenInterview(interviewId: string): Promise<void> {
+  const supabase = await createClient();
+
+  const { error } = await supabase.rpc('reopen_interview', {
+    p_interview_id: interviewId,
   });
 
   if (error) throw new Error(error.message);

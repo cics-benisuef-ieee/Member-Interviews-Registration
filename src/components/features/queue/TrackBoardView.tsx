@@ -5,7 +5,8 @@ import { AutoRefresh } from '../shared/AutoRefresh';
 import { NowServing } from './NowServing';
 import { QueueEmpty } from './QueueEmpty';
 import { QueueHeader } from './QueueHeader';
-import { FinishedRow, QueueRow } from './QueueRow';
+import { FinishedEntryRow } from './FinishedEntryRow';
+import { QueueRow } from './QueueRow';
 import { StartInterviewButton } from './StartInterviewButton';
 
 interface TrackBoardViewProps {
@@ -87,7 +88,7 @@ export function TrackBoardView({ board, otherTracks }: TrackBoardViewProps) {
               </div>
               <ul>
                 {board.finished.map((entry) => (
-                  <FinishedRow key={entry.id} entry={entry} />
+                  <FinishedEntryRow key={entry.id} entry={entry} />
                 ))}
               </ul>
             </Card>

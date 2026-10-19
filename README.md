@@ -9,7 +9,9 @@ Built with **Next.js + Supabase + Vercel** — every service runs on a free tier
 - **Public registration** — members register themselves from any phone, pick their track from a dropdown, and get a queue number.
 - **Per-track boards** — each track has one shared login; its board shows today's queue with a live "now interviewing" panel and one-tap **Start / Pass / Reject**.
 - **Same-day transfer** — a board can send a member to another track; the member is appended to that track's queue for the rest of the day, and the original record is kept.
-- **Admin panel** — one admin login manages tracks and their credentials, registers members on their behalf, edits member details, and reviews full history.
+- **Corrections after the fact** — a finished interview is never locked: review the saved evaluation read-only, fix it, swap Pass ⇄ Reject, or reopen the member into the queue. Each of a member's track interviews can be corrected in place, transfers included.
+- **Admin panel** — one admin login manages tracks and their credentials, registers members on their behalf, edits member details (also from history), reviews every interview, and can clear past members once their day is over.
+- **History that owns its data** — every interview snapshots the member it belonged to, so the members list is only today's working set; a finished day's people live in History, still readable and editable there.
 - **Daily queue** — queues reset every day at local midnight (chapter timezone); queue numbers are assigned atomically, so two simultaneous registrations can never collide.
 - **IEEE brand palette** — IEEE master + Computer Society + Computational Intelligence colors.
 
@@ -32,7 +34,7 @@ Seeded A→Z: Agentic AI · Back-end Development · Data Analysis · Embedded Sy
 ### 1. Create the Supabase project
 
 1. Create a free project at [supabase.com](https://supabase.com).
-2. Open **SQL Editor** and run the files in `supabase/migrations/` in order (`0001` → `0008`).
+2. Open **SQL Editor** and run the files in `supabase/migrations/` in order (`0001` → `0010`).
 3. Open **Project Settings → API Keys** and copy the project URL, the **publishable** key, and a **secret** key. Supabase is retiring the legacy `anon` / `service_role` keys, so create/use the publishable-and-secret pair.
 
 ### 2. Configure the environment
@@ -83,14 +85,15 @@ Open http://localhost:3000 — visitors land on the registration form.
 | `npm run db:seed`             | Seed tracks + logins (idempotent)                 |
 | `npm run db:demo`             | Add realistic demo queue data (idempotent)        |
 | `npm run db:clear`            | Empty all members + interviews (backs up first)   |
+| `npm run db:purge-past`       | Clear past-day members only; history is kept      |
 | `npm run db:types`            | Regenerate database types (requires Supabase CLI) |
 
 ## Roles
 
-| Role        | Login                    | Can do                                                        |
-| ----------- | ------------------------ | ------------------------------------------------------------- |
-| Track board | `track-slug@your-domain` | See its own queue; start, pass, reject, transfer              |
-| Admin       | `admin@your-domain`      | Everything: all queues, tracks, credentials, members, history |
+| Role        | Login                    | Can do                                                                                  |
+| ----------- | ------------------------ | --------------------------------------------------------------------------------------- |
+| Track board | `track-slug@your-domain` | See its own queue; start, pass, reject, transfer; correct or reopen finished interviews |
+| Admin       | `admin@your-domain`      | Everything: all queues, tracks, credentials, members, history                           |
 
 ## Project structure
 

@@ -9,15 +9,17 @@ import { ChevronDown, ChevronUp, Pencil, Trash2 } from 'lucide-react';
 import { useActionState, useState } from 'react';
 import { formatQueueNumber, formatTime, statusLabel, statusTone } from '../queue/queue.format';
 import { MemberEditForm } from './MemberEditForm';
+import { MemberInterviewReview } from './MemberInterviewReview';
 import { dayStatusLabel, dayStatusTone } from './members.format';
 
 /**
  * One member in the admin list: their committee today, where they stand in
- * the queue, their details — with an expandable per-interview panel and
- * inline editing and deletion.
+ * the queue, their details — with an expandable per-interview panel that can
+ * review and correct each decision, and inline editing and deletion.
  *
- * Deletion is destructive and cannot be undone — it also removes every queue
- * entry that member was part of — so it always takes two deliberate clicks.
+ * Deleting removes the member and their today's queue entries — the way to undo
+ * a mistaken registration. Earlier days are history and are never touched, so it
+ * still takes two deliberate clicks.
  */
 export function MemberListItem({ member }: { member: MemberWithStatus }) {
   const [editing, setEditing] = useState(false);
@@ -110,7 +112,7 @@ export function MemberListItem({ member }: { member: MemberWithStatus }) {
               </button>
               <button
                 type="button"
-                title="Removes this member and every queue entry they were in"
+                title="Removes this member and their today's queue entries; their history is kept"
                 onClick={() => setConfirmingDelete(true)}
                 className="inline-flex items-center gap-1 rounded-xl border border-ieee-red-dark/30 px-3 py-1.5 text-sm font-semibold text-ieee-red-dark transition-colors hover:bg-ieee-red-dark hover:text-white"
               >
@@ -134,6 +136,7 @@ export function MemberListItem({ member }: { member: MemberWithStatus }) {
             <TodayInterviewPanel
               key={entry.id}
               entry={entry}
+              member={member}
               transferred={transferred}
               isCurrent={isCurrentEntry(entry, member.todayInterviews)}
             />
@@ -153,10 +156,12 @@ export function MemberListItem({ member }: { member: MemberWithStatus }) {
 /** One of today's interviews, with the details an admin scans for. */
 function TodayInterviewPanel({
   entry,
+  member,
   transferred,
   isCurrent,
 }: {
   entry: MemberTodayInterview;
+  member: MemberWithStatus;
   transferred: boolean;
   isCurrent: boolean;
 }) {
@@ -178,6 +183,8 @@ function TodayInterviewPanel({
         Started {formatTime(entry.startedAt)} · Finished {formatTime(entry.finishedAt)}
         {entry.interviewers.length > 0 && ` · ${entry.interviewers.join(', ')}`}
       </p>
+
+      <MemberInterviewReview entry={entry} member={member} />
     </div>
   );
 }

@@ -3,10 +3,14 @@
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 import { requireAdmin } from '@/domain/auth/guards';
-import { applyMemberUpdate, parseMemberInput } from '@/domain/members/member.service';
+import {
+  applyMemberUpdate,
+  parseMemberInput,
+  purgePastMembers,
+  removeMembers,
+} from '@/domain/members/member.service';
 import { registerMember } from '@/domain/interviews/interview.service';
 import { actionFailed, type ActionState } from '@/lib/action-state';
-import { deleteMember, deleteMembers } from '@/domain/members/member.repo';
 
 export interface MemberFormState {
   error: string | null;
@@ -40,6 +44,11 @@ export async function registerMemberAdminAction(
   }
 }
 
+/**
+ * Edits a person's details. Used from the members list *and* from a history
+ * review — both submit the same `memberId`, and the database keeps the shared
+ * `members` row and every interview snapshot in step. So both views refresh.
+ */
 export async function updateMemberAction(
   _prevState: MemberFormState,
   formData: FormData,
@@ -51,6 +60,7 @@ export async function updateMemberAction(
   try {
     const member = await applyMemberUpdate(memberId, formData);
     revalidatePath('/admin/members');
+    revalidatePath('/admin/history');
     return { error: null, successMessage: `${member.fullName} updated.` };
   } catch (error) {
     return {
@@ -60,17 +70,14 @@ export async function updateMemberAction(
   }
 }
 
-/**
- * Deletion also removes every interview the member was queued for, because
- * `interviews.member_id` references members with ON DELETE CASCADE. That is
- * what makes it the right tool for a mistaken or duplicate registration: one
- * action undoes the whole entry.
- */
-
 const singleIdSchema = z.string().uuid();
 const idListSchema = z.array(z.string().uuid()).min(1).max(1000);
 
-/** Removes one member. */
+/**
+ * Delete removes the member and their *today* queue entries — the way to undo a
+ * mistaken or duplicate registration. Earlier days are history: they are kept
+ * on the interview snapshot and are never touched by this.
+ */
 export async function deleteMemberAction(
   _prevState: ActionState,
   formData: FormData,
@@ -78,15 +85,12 @@ export async function deleteMemberAction(
   await requireAdmin();
 
   try {
-    await deleteMember(singleIdSchema.parse(String(formData.get('memberId') ?? '')));
+    await removeMembers([singleIdSchema.parse(String(formData.get('memberId') ?? ''))]);
   } catch (error) {
     return actionFailed(error, 'Could not delete that member.');
   }
 
-  // These screens all quote queue totals.
-  revalidatePath('/admin/members');
-  revalidatePath('/admin');
-  revalidatePath('/board');
+  revalidateQueueTotals();
   return { error: null };
 }
 
@@ -98,13 +102,50 @@ export async function deleteMembersAction(
   await requireAdmin();
 
   try {
-    await deleteMembers(idListSchema.parse(formData.getAll('memberIds').map(String)));
+    await removeMembers(idListSchema.parse(formData.getAll('memberIds').map(String)));
   } catch (error) {
     return actionFailed(error, 'Could not delete the listed members.');
   }
 
+  revalidateQueueTotals();
+  return { error: null };
+}
+
+export interface PurgeMembersState {
+  error: string | null;
+  /** How many members were removed by the last successful purge. */
+  purged: number | null;
+}
+
+/**
+ * Empties the live members table of everyone whose day is over. The interviews
+ * they were in stay, snapshot and all, so history is untouched — this is the
+ * "members do not outlive their day" cleanup.
+ */
+export async function purgePastMembersAction(
+  _prevState: PurgeMembersState,
+  formData: FormData,
+): Promise<PurgeMembersState> {
+  await requireAdmin();
+
+  try {
+    const purged = await purgePastMembers(
+      formData.get('before') ? String(formData.get('before')) : undefined,
+    );
+    revalidateQueueTotals();
+    return { error: null, purged };
+  } catch (error) {
+    return {
+      error: error instanceof Error ? error.message : 'Could not purge past members.',
+      purged: null,
+    };
+  }
+}
+
+/** Screens that quote queue totals after members are removed. */
+function revalidateQueueTotals(): void {
   revalidatePath('/admin/members');
+  revalidatePath('/admin/history');
   revalidatePath('/admin');
   revalidatePath('/board');
-  return { error: null };
 }

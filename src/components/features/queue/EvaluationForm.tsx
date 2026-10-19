@@ -172,8 +172,19 @@ function formatClock(iso: string): string {
  * transfer stay locked until the *saved* evaluation is complete — the same
  * gate the database enforces — and the checklist above the buttons names
  * whatever is still missing.
+ *
+ * Passing `finished` reuses the same form on an already-decided interview: the
+ * copy stops talking about unlocking Pass, and saving simply corrects the
+ * record.
  */
-export function EvaluationForm({ entry }: { entry: QueueEntry }) {
+export function EvaluationForm({
+  entry,
+  finished = false,
+}: {
+  entry: QueueEntry;
+  /** Editing an already-decided interview rather than the one being held. */
+  finished?: boolean;
+}) {
   const [state, formAction, pending] = useActionState(saveInterviewEvaluationAction, EMPTY_STATE);
   const [values, setValues] = useState<FormValues>(() => serverValues(entry));
   const [restoredDraftAt, setRestoredDraftAt] = useState<string | null>(null);
@@ -392,7 +403,7 @@ export function EvaluationForm({ entry }: { entry: QueueEntry }) {
       {!liveComplete ? (
         <div className="rounded-xl border border-hairline bg-surface/60 p-3">
           <p className="text-xs font-bold tracking-widest text-ieee-blue uppercase">
-            Still needed before Pass unlocks
+            {finished ? 'Still missing from the record' : 'Still needed before Pass unlocks'}
           </p>
           <ul className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1 text-xs text-ieee-gray">
             {missing.map((item) => (
@@ -406,7 +417,9 @@ export function EvaluationForm({ entry }: { entry: QueueEntry }) {
       ) : (
         !savedComplete && (
           <p className="rounded-lg bg-ieee-orange-dark/10 px-3 py-2 text-sm font-semibold text-ieee-orange-dark">
-            Everything is filled in — save the evaluation to unlock Pass, Reject and Transfer.
+            {finished
+              ? 'Everything is filled in — save to update the record.'
+              : 'Everything is filled in — save the evaluation to unlock Pass, Reject and Transfer.'}
           </p>
         )
       )}

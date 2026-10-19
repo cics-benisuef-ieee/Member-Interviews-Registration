@@ -50,9 +50,22 @@ export interface InterviewHistoryEntry {
   status: InterviewStatus;
   startedAt: string | null;
   finishedAt: string | null;
+  trackId: string;
   trackName: string;
+  /**
+   * Stable identity of the person, valid even after their `members` row was
+   * purged — it is what the history review edits.
+   */
+  memberRef: string;
+  /** The member's details as captured on the interview (0010). */
   memberName: string;
+  memberPhone: string | null;
+  memberEmail: string | null;
+  memberPosition: string | null;
+  memberNotes: string | null;
   transferredToTrackName: string | null;
+  /** The evaluation as saved, for the history row's read-only review. */
+  evaluation: InterviewEvaluation | null;
 }
 
 export interface RegistrationReceipt {

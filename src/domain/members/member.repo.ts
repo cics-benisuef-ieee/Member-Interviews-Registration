@@ -22,7 +22,15 @@ export async function findMember(id: string): Promise<Member | null> {
   return toMember(data as MemberRow);
 }
 
-export async function searchMembers(query: string, limit = 50): Promise<Member[]> {
+export async function searchMembers(
+  query: string,
+  options: { limit?: number; memberIds?: string[] } = {},
+): Promise<Member[]> {
+  // A caller that asks for "today's members" and gets an empty list must see an
+  // empty list — not every member, which `.in('id', [])` would otherwise mean
+  // if it were skipped.
+  if (options.memberIds && options.memberIds.length === 0) return [];
+
   const supabase = await createClient();
 
   const term = sanitizeSearchTerm(query);
@@ -31,7 +39,11 @@ export async function searchMembers(query: string, limit = 50): Promise<Member[]
     .from('members')
     .select(MEMBER_COLUMNS)
     .order('created_at', { ascending: false })
-    .limit(limit);
+    .limit(options.limit ?? 50);
+
+  if (options.memberIds) {
+    builder = builder.in('id', options.memberIds);
+  }
 
   if (term) {
     // Every column needs the same trailing wildcard: the original version had
@@ -47,6 +59,12 @@ export async function searchMembers(query: string, limit = 50): Promise<Member[]
   return (data as MemberRow[]).map(toMember);
 }
 
+/**
+ * Updates a person's details through `update_member_details` (0010), which
+ * edits the live `members` row *and* refreshes the snapshot on every interview
+ * they are in. That is what makes a detail corrected in history visible
+ * everywhere — and what keeps a purged member's record editable.
+ */
 export async function updateMember(
   id: string,
   changes: {
@@ -58,40 +76,51 @@ export async function updateMember(
   },
 ): Promise<void> {
   const supabase = await createClient();
-  const { error } = await supabase
-    .from('members')
-    .update({
-      full_name: changes.fullName,
-      phone: changes.phone ?? null,
-      email: changes.email ?? null,
-      notes: changes.notes ?? null,
-      position: changes.position ?? null,
-    })
-    .eq('id', id);
+  const { error } = await supabase.rpc('update_member_details', {
+    p_member_id: id,
+    p_full_name: changes.fullName,
+    p_phone: changes.phone ?? null,
+    p_email: changes.email ?? null,
+    p_position: changes.position ?? null,
+    p_notes: changes.notes ?? null,
+  });
 
   if (error) throw new Error(error.message);
 }
 
 /**
- * Removes a member and — through ON DELETE CASCADE — every interview they were
- * queued for. Only admins may delete members (see the RLS policy), so this is
- * safe to expose through a server action.
+ * Removes members and their *today* queue entries through `delete_members`
+ * (0010). Earlier days are history, kept on the interview snapshot — which is
+ * why a member can never be deleted "by accident" out of the records any more.
  */
-export async function deleteMember(id: string): Promise<void> {
-  const supabase = await createClient();
-  const { error } = await supabase.from('members').delete().eq('id', id);
-
-  if (error) throw new Error(`Could not delete the member: ${error.message}`);
-}
-
-/** Removes several members in a single statement. */
-export async function deleteMembers(ids: string[]): Promise<void> {
-  if (ids.length === 0) return;
+export async function deleteMembers(ids: string[]): Promise<number> {
+  if (ids.length === 0) return 0;
 
   const supabase = await createClient();
-  const { error } = await supabase.from('members').delete().in('id', ids);
+  const { data, error } = await supabase.rpc('delete_members', { p_member_ids: ids });
 
   if (error) throw new Error(`Could not delete those members: ${error.message}`);
+  return (data as number) ?? 0;
+}
+
+/** Removes one member; a thin wrapper so callers need not build an array. */
+export async function deleteMember(id: string): Promise<number> {
+  return deleteMembers([id]);
+}
+
+/**
+ * Clears members whose day is over (`purge_past_members`, 0010). Their
+ * interviews stay, snapshot and all, so history is untouched — this only
+ * empties the live members table.
+ */
+export async function purgePastMembers(before?: string): Promise<number> {
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc('purge_past_members', {
+    p_before: before ?? null,
+  });
+
+  if (error) throw new Error(`Could not purge past members: ${error.message}`);
+  return (data as number) ?? 0;
 }
 
 /**

@@ -23,7 +23,16 @@ export interface MemberRow {
 
 export interface InterviewRow {
   id: string;
-  member_id: string;
+  /** Live link to the member row; null once the member has been purged (0010). */
+  member_id: string | null;
+  /** Durable identity of the person, kept after `member_id` is cleared (0010). */
+  member_ref: string;
+  /** Snapshot of the member's details, taken when the interview was created. */
+  member_name: string | null;
+  member_phone: string | null;
+  member_email: string | null;
+  member_position: string | null;
+  member_notes: string | null;
   track_id: string;
   queue_day: string;
   queue_number: number;

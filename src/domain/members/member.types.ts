@@ -1,4 +1,4 @@
-import type { Recommendation } from '@/domain/interviews/evaluation';
+import type { InterviewEvaluation, Recommendation } from '@/domain/interviews/evaluation';
 import type { InterviewStatus } from '@/domain/interviews/interview.constants';
 
 export interface Member {
@@ -47,6 +47,8 @@ export interface MemberTodayInterview {
   transferredFromId: string | null;
   overallTotal: number | null;
   recommendation: Recommendation | null;
+  /** The saved evaluation, so a finished entry can be reviewed and corrected. */
+  evaluation: InterviewEvaluation | null;
   /** Accounts that worked on this interview today, in order of first action. */
   interviewers: string[];
 }

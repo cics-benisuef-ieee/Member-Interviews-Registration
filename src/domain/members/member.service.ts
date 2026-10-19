@@ -66,27 +66,58 @@ export function parseMemberInput(formData: FormData) {
   });
 }
 
+/**
+ * Applies an edit from any form (the members list or a history review).
+ *
+ * A purged member has no row left to read back, so when `findMember` comes up
+ * empty the values just saved to the interview snapshots are returned instead —
+ * the edit succeeded either way.
+ */
 export async function applyMemberUpdate(id: string, formData: FormData): Promise<Member> {
   const input = parseMemberInput(formData);
   await memberRepo.updateMember(id, input);
 
   const member = await memberRepo.findMember(id);
-  if (!member) throw new Error('Member not found.');
-  return member;
+  return (
+    member ?? {
+      id,
+      fullName: input.fullName,
+      phone: input.phone ?? null,
+      email: input.email ?? null,
+      notes: input.notes ?? null,
+      position: input.position ?? null,
+    }
+  );
+}
+
+/** Removes members and their today-only queue entries; history survives. */
+export async function removeMembers(ids: string[]): Promise<number> {
+  return memberRepo.deleteMembers(ids);
 }
 
 /**
+ * Empties the live members table of everyone whose day is over. Every interview
+ * they were in stays — with its member snapshot — so history is untouched.
+ */
+export async function purgePastMembers(before?: string): Promise<number> {
+  return memberRepo.purgePastMembers(before);
+}
+/**
  * The admin members list: members enriched with where they stand today.
  *
- * Two queries rather than one join, because the members side owns the search
- * (name, phone, email, RLS) and the interview side owns the queue day — each
- * stays behind its own repo.
+ * It is scoped to **today's** queue: only people with an interview on the
+ * current queue day appear, so a finished day's members drop out of this
+ * working list and live on in history instead. Two queries rather than one
+ * join, because the members side owns the search (name, phone, email, RLS) and
+ * the interview side owns the queue day — each stays behind its own repo.
  */
 export async function searchMembersWithStatus(query: string): Promise<MemberWithStatus[]> {
-  const members = await memberRepo.searchMembers(query);
+  const day = await interviewRepo.getQueueDay();
+  const todayRefs = await interviewRepo.listMemberRefsForDay(day);
+
+  const members = await memberRepo.searchMembers(query, { memberIds: todayRefs });
   if (members.length === 0) return [];
 
-  const day = await interviewRepo.getQueueDay();
   const detailsByMember = await interviewRepo.listTodayInterviewDetails(
     day,
     members.map((member) => member.id),
@@ -103,6 +134,7 @@ export async function searchMembersWithStatus(query: string): Promise<MemberWith
       transferredFromId: detail.transferredFromId,
       overallTotal: detail.overallTotal,
       recommendation: detail.recommendation,
+      evaluation: detail.evaluation,
       interviewers: detail.interviewers,
     }));
 

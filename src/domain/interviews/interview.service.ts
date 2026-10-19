@@ -121,10 +121,11 @@ export async function unstartInterview(interviewId: string): Promise<void> {
 }
 
 /**
- * Saves the evaluation (data section + scored criteria) on an open interview,
- * as often as the committee likes: a draft may hold anything, a complete save
+ * Saves the evaluation (data section + scored criteria) on an interview, as
+ * often as the committee likes: a draft may hold anything, a complete save
  * must hold everything. The recommendation is stored separately from the
- * score and can be revised until the interview is finished.
+ * score and can be revised at any time — including after the interview has
+ * been finished, which is why a finished row stays editable.
  *
  * `complete` says which of the two was stored — the same rule
  * `complete_interview` enforces before it lets the interview end, so the form
@@ -211,6 +212,29 @@ export async function transferInterview(input: {
     targetTrackId: parsed.targetTrackId,
     notes: parsed.notes,
   });
+}
+
+/**
+ * PASSED ⇄ REJECTED after the interview has been finished. The same
+ * complete-evaluation gate that finishing requires is checked here and again
+ * in the database (0009).
+ */
+export async function changeInterviewOutcome(params: {
+  interviewId: string;
+  outcome: 'PASSED' | 'REJECTED';
+}): Promise<void> {
+  await assertEvaluationComplete(params.interviewId);
+  await interviewRepo.rpcChangeInterviewOutcome(params.interviewId, params.outcome);
+}
+
+/**
+ * Puts a finished interview back in its track's queue as WAITING, keeping the
+ * queue number, notes, and evaluation. For a transfer the database also
+ * cancels the receiving entry — but only while it is untouched; once that
+ * track has started the member, the database refuses and says so.
+ */
+export async function reopenInterview(interviewId: string): Promise<void> {
+  await interviewRepo.rpcReopenInterview(interviewId);
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────────

@@ -19,9 +19,11 @@ export const STATUS_TRANSITIONS: Record<InterviewStatus, readonly InterviewStatu
   // Unstart puts a member back in the waiting queue; the evaluation saved so
   // far (and their queue number) is preserved.
   IN_INTERVIEW: ['WAITING', 'PASSED', 'REJECTED', 'NEEDS_ANOTHER_TRACK'],
-  PASSED: [],
-  REJECTED: [],
-  NEEDS_ANOTHER_TRACK: [],
+  // A finished interview stays editable (0009): its decision may be swapped,
+  // or it may be reopened back into the queue.
+  PASSED: ['REJECTED', 'WAITING'],
+  REJECTED: ['PASSED', 'WAITING'],
+  NEEDS_ANOTHER_TRACK: ['WAITING'],
 };
 
 /** Outcomes a board can record when finishing an interview. */

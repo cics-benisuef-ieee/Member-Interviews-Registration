@@ -1,5 +1,6 @@
 import { HistoryFilters } from '@/components/features/admin/HistoryFilters';
-import { HistoryCards, HistoryTable } from '@/components/features/admin/HistoryList';
+import { HistoryList } from '@/components/features/admin/HistoryList';
+import { PurgePastMembersButton } from '@/components/features/admin/PurgePastMembersButton';
 import { PageHeader } from '@/components/features/shared/PageHeader';
 import { Card } from '@/components/ui/Card';
 import { getHistory } from '@/domain/interviews/interview.service';
@@ -21,7 +22,11 @@ export default async function AdminHistoryPage({
 
   return (
     <>
-      <PageHeader title="History" subtitle={`Every interview recorded. Today is ${today}.`} />
+      <PageHeader
+        title="History"
+        subtitle={`Every interview recorded. Today is ${today}.`}
+        actions={<PurgePastMembersButton />}
+      />
 
       <div className="space-y-6">
         <Card>
@@ -34,15 +39,8 @@ export default async function AdminHistoryPage({
               No interviews match these filters.
             </p>
           ) : (
-            <>
-              {/* Desktop: the full table. Mobile & tablet: one card per entry. */}
-              <div className="hidden lg:block">
-                <HistoryTable entries={entries} />
-              </div>
-              <div className="lg:hidden">
-                <HistoryCards entries={entries} />
-              </div>
-            </>
+            // Desktop: the full table. Mobile & tablet: one card per entry.
+            <HistoryList entries={entries} />
           )}
         </Card>
       </div>
