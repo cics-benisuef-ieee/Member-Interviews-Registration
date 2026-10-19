@@ -32,13 +32,14 @@ using (public.is_admin() or track_id = public.my_track_id())
 
 A track board literally cannot see another track's queue through the API — even by hand-crafting requests.
 
-## Queue functions (migrations/0005–0010)
+## Queue functions (migrations/0005–0011)
 
-The mutating functions are `security definer` and re-check authorization internally:
+The functions are `security definer` and re-check authorization internally:
 
 - `register_member` — open to anonymous (it only ever creates a `WAITING` entry).
 - `start_interview` / `complete_interview` / `change_interview_outcome` / `reopen_interview` — require the caller to be an admin, or a committee user whose track owns the interview (`private.can_manage_interview`).
 - `update_member_details` / `delete_members` / `purge_past_members` — admin only (the seed/scripts reach them with the secret key, which carries no `auth.uid()`).
+- `lookup_member_results` — open to anonymous, but only returns rows whose stored email **and** phone both match the pair supplied, and only outcome fields (no interviewer notes or per-criterion scores). Anonymous visitors cannot read `members` or `interviews` directly, so this is the only way a result leaves the database without a login.
 
 Transfers additionally validate: target track must be different, active, and not already containing that member today.
 

@@ -27,6 +27,12 @@ export default async function RegisterThanksPage({
       >
         Register another member
       </Link>
+      <Link
+        href="/results"
+        className="mt-3 block text-sm font-semibold text-ieee-blue hover:underline"
+      >
+        Check your result after the interview
+      </Link>
     </div>
   );
 }

@@ -7,6 +7,7 @@ Built with **Next.js + Supabase + Vercel** — every service runs on a free tier
 ## Features
 
 - **Public registration** — members register themselves from any phone, pick their track from a dropdown, and get a queue number.
+- **Public result lookup** — after their interview, a member enters the email and phone they registered with; both must match before their own result (status, score, recommendation) is shown.
 - **Per-track boards** — each track has one shared login; its board shows today's queue with a live "now interviewing" panel and one-tap **Start / Pass / Reject**.
 - **Same-day transfer** — a board can send a member to another track; the member is appended to that track's queue for the rest of the day, and the original record is kept.
 - **Corrections after the fact** — a finished interview is never locked: review the saved evaluation read-only, fix it, swap Pass ⇄ Reject, or reopen the member into the queue. Each of a member's track interviews can be corrected in place, transfers included.

@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { RegisterForm } from '@/components/features/registration/RegisterForm';
 import { listRegistrationTracks } from '@/domain/tracks/track.service';
 
@@ -13,6 +14,13 @@ export default async function RegisterPage() {
         Fill in your details and you’ll receive a queue number for your track today.
       </p>
       <RegisterForm tracks={tracks} />
+
+      <p className="mt-6 border-t border-hairline pt-4 text-center text-sm text-ieee-gray">
+        Already registered?{' '}
+        <Link href="/results" className="font-semibold text-ieee-blue hover:underline">
+          Check your interview result
+        </Link>
+      </p>
     </div>
   );
 }

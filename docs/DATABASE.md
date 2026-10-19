@@ -111,7 +111,7 @@ The **Data** section records the two interviewers (technical and attitude); the 
 
 Saving is a **draft action** (allowed on any interview — open or finished — as often as the committee likes, with any part of the form filled in) — "Save draft" stores whatever exists so far and leaves `overall_total` null, while "Save evaluation" validates the finished form. The board also keeps an unsaved copy in the browser (`localStorage`, keyed by interview id) so a refresh, a reload, or navigating away and back never clears work in progress. Finishing is gated on completion, both in the app and in the database: a draft cannot end an interview.
 
-## Queue functions (migrations/0005–0010)
+## Queue functions (migrations/0005–0011)
 
 | Function                                                             | Callable by              | Purpose                                                                                      |
 | -------------------------------------------------------------------- | ------------------------ | -------------------------------------------------------------------------------------------- |
@@ -128,6 +128,7 @@ Saving is a **draft action** (allowed on any interview — open or finished — 
 | `get_queue_day()`                                                    | anyone                   | today's date in the chapter timezone                                                         |
 | `get_track_board(track)`                                             | track board / admin      | one track's full queue screen                                                                |
 | `get_tv_boards()`                                                    | anyone (incl. anonymous) | summaries of the tracks marked `tv_visible`                                                  |
+| `lookup_member_results(email, phone)`                                | anyone (incl. anonymous) | results page: matches **both** email + phone, returns only that member's own outcomes        |
 
 All run as `security definer` with their own authorization checks, and assign queue numbers under a row lock — concurrent registrations can never collide.
 
