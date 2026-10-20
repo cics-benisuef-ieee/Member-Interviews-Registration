@@ -1,6 +1,6 @@
 // ============================================================================
 // Integration test for evaluation drafts, post-finish editing, and the member
-// snapshot (migrations 0008 + 0009 + 0010 + the app layers).
+// snapshot (migrations 0008 + 0009 + 0010 + 0012 + the app layers).
 //
 // It exercises the real path a committee member takes on the board:
 //
@@ -23,7 +23,11 @@ import { createClient } from '@supabase/supabase-js';
 const SUPABASE_URL = process.env.SUPABASE_URL ?? process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SERVICE_KEY = process.env.SUPABASE_SECRET_KEY ?? process.env.SUPABASE_SERVICE_ROLE_KEY;
 const EMAIL_DOMAIN = process.env.TRACK_EMAIL_DOMAIN ?? 'ieee.local';
+// Admin and track accounts can have different passwords; each falls back to the
+// shared TRACK_DEFAULT_PASSWORD so a single-password setup still works.
 const SEED_PASSWORD = process.env.TRACK_DEFAULT_PASSWORD ?? 'ChangeMe123!';
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD ?? SEED_PASSWORD;
+const TRACK_PASSWORD = process.env.TRACK_PASSWORD ?? SEED_PASSWORD;
 
 if (!SUPABASE_URL || !SERVICE_KEY) {
   console.error('Missing NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SECRET_KEY in .env');
@@ -143,8 +147,11 @@ async function readInterview(id) {
 /**
  * The eleven criteria as a filled-in form would submit them. The scores and
  * field names come from the app's own criteria list (and its key helpers), so
- * the test cannot drift from the form it is meant to imitate. Returns the
- * expected total alongside the fields.
+ * the test cannot drift from the form it is meant to imitate. Notes are
+ * optional since 0012, so they are written for only some of the criteria —
+ * the helper also returns those criteria's keys so a test can prove a missing
+ * note no longer holds the finish gate shut. Returns the expected total
+ * alongside the fields.
  */
 function completeFormFields({ note, recommendation = 'ACCEPTED' }) {
   const fields = {
@@ -155,13 +162,17 @@ function completeFormFields({ note, recommendation = 'ACCEPTED' }) {
   };
 
   let total = 0;
+  const noted = [];
   for (const criterion of EVALUATION_CRITERIA) {
     const score = Math.min(8, criterion.max);
     fields[scoreFieldName(criterion.key)] = String(score);
-    fields[notesFieldName(criterion.key)] = `${note} (${criterion.key})`;
+    if (criterion.key !== 'flexibility') {
+      fields[notesFieldName(criterion.key)] = `${note} (${criterion.key})`;
+      noted.push(criterion.key);
+    }
     total += score;
   }
-  return { fields, total };
+  return { fields, total, noted };
 }
 
 // ── The test ───────────────────────────────────────────────────────────────
@@ -204,7 +215,7 @@ try {
   section('1 · Sign in');
   const { error: signInError } = await board.auth.signInWithPassword({
     email: `admin@${EMAIL_DOMAIN}`,
-    password: SEED_PASSWORD,
+    password: ADMIN_PASSWORD,
   });
   check('admin login works', !signInError, signInError?.message);
 
@@ -302,6 +313,23 @@ try {
     'an untouched criterion is empty, not missing',
     Object.keys(partialJson.scores.flexibility ?? {}).length === 0,
     JSON.stringify(partialJson.scores.flexibility),
+  );
+
+  const scoreOnlyParsed = JSON.parse(
+    JSON.stringify(
+      parseLikeTheApp(scratchInterviewId, {
+        [scoreFieldName('motivation')]: '8',
+        interviewerTechnical: 'Sara Nabil',
+        interviewerAttitude: 'Omar Farid',
+        recommendation: 'ACCEPTED',
+      }),
+    ),
+  );
+  check(
+    'the app accepts a score with no note (notes are optional since 0012)',
+    typeof scoreOnlyParsed.scores.motivation?.score === 'number' &&
+      !('notes' in scoreOnlyParsed.scores.motivation),
+    JSON.stringify(scoreOnlyParsed.scores.motivation),
   );
 
   const junkCases = [
@@ -433,7 +461,11 @@ try {
 
   // 7 · A complete evaluation, saved the same way, unlocks finishing.
   section('7 · Completing and finishing');
-  const { fields: completeFields, total: completeTotal } = completeFormFields({
+  const {
+    fields: completeFields,
+    total: completeTotal,
+    noted: notedCriteria,
+  } = completeFormFields({
     note: 'Consistently strong.',
   });
   const completeParsed = parseLikeTheApp(scratchInterviewId, completeFields);
@@ -446,22 +478,33 @@ try {
 
   row = await readInterview(scratchInterviewId);
   check(
-    'a complete save writes overall_total',
+    'scores without a note are complete since 0012 (overall_total is written)',
     row.overall_total === completeTotal,
     `got ${row.overall_total}`,
+  );
+  check(
+    'a criterion left without a note is stored as an empty note',
+    row.evaluation?.scores?.flexibility?.score === 8 &&
+      row.evaluation?.scores?.flexibility?.notes === '',
+    JSON.stringify(row.evaluation?.scores?.flexibility),
+  );
+  check(
+    'the criteria that were annotated kept their notes',
+    notedCriteria.every((key) => (row.evaluation?.scores?.[key]?.notes ?? '').length > 0),
+    JSON.stringify(notedCriteria.filter((key) => !row.evaluation?.scores?.[key]?.notes)),
   );
   check('a complete save stores the recommendation', row.recommendation === 'ACCEPTED');
   check('final notes are stored', row.final_notes === 'Solid fundamentals.');
 
-  // 8 · Editing back into a draft re-locks the gate — nothing is one-way.
-  section('8 · A completed evaluation can be edited back into a draft');
+  // 8 · An incomplete evaluation re-locks the gate — nothing is one-way.
+  section('8 · A complete evaluation can be edited back into a draft');
   const { data: scoresOnly } = await service
     .from('interviews')
     .select('evaluation')
     .eq('id', scratchInterviewId)
     .single();
   const edited = JSON.parse(JSON.stringify(scoresOnly.evaluation));
-  delete edited.scores.commitment.notes;
+  delete edited.scores.teamwork.score;
   const relocked = await board.rpc('save_interview_evaluation', {
     p_interview_id: scratchInterviewId,
     p_evaluation: edited,
@@ -470,7 +513,7 @@ try {
   });
   row = await readInterview(scratchInterviewId);
   check(
-    'clearing one note makes it a draft again',
+    'clearing one score makes it a draft again',
     !relocked.error && row.overall_total === null,
     relocked.error?.message ?? `total ${row.overall_total}`,
   );
@@ -483,6 +526,12 @@ try {
     'and the finish gate shuts again',
     relockFinish.error?.message?.includes('Complete the evaluation') === true,
     relockFinish.error?.message ?? 'it succeeded',
+  );
+  const settledAgain = await saveOnServer(board, scratchInterviewId, completeParsed);
+  check(
+    're-saving the complete form settles it again',
+    !settledAgain.error && settledAgain.data === completeTotal,
+    settledAgain.error?.message ?? `got ${settledAgain.data}`,
   );
 
   // 9 · Save complete again, then finish for real.
@@ -800,7 +849,7 @@ try {
 
   const { error: trackSignInError } = await trackClient.auth.signInWithPassword({
     email: `${track.slug}@${EMAIL_DOMAIN}`,
-    password: SEED_PASSWORD,
+    password: TRACK_PASSWORD,
   });
   check('the track login works', !trackSignInError, trackSignInError?.message);
 

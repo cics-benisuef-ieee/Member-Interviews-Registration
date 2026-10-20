@@ -15,7 +15,7 @@ export function NowServing({ entry, availableTracks }: NowServingProps) {
   const evaluation = entry.evaluation;
   const complete = isEvaluationComplete(evaluation);
   const unfinishedHint =
-    'Save a complete evaluation first — every criterion with a note, both interviewer fields, and a recommendation.';
+    'Save a complete evaluation first — every criterion scored, both interviewer names, and a recommendation.';
 
   return (
     <section className="relative overflow-hidden rounded-xl border-2 border-ieee-orange-dark bg-gradient-surface p-6 shadow-raised">

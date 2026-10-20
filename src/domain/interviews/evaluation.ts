@@ -6,8 +6,10 @@
  * member) and the Final evaluation (the computed total, a recommendation that
  * is never counted into the score, and optional notes).
  *
- * Every criterion carries both a score and a note — one without the other is
- * not a complete evaluation, which is the gate for finishing an interview.
+ * Every criterion carries a score, and may carry a note. The score is what a
+ * complete evaluation needs (plus both interviewer fields and a
+ * recommendation), which is the gate for finishing an interview; notes are
+ * context the committee writes when it has something worth writing.
  */
 
 /** The two free-text fields the committee fills before scoring. */
@@ -38,7 +40,7 @@ const IEEE_CRITERIA = [
   { key: 'studentBranch', label: 'Knowledge of Student Branch', max: 5 },
 ] as const;
 
-/** One scored line of the form: a label, a maximum, and a required note. */
+/** One scored line of the form: a label, a maximum, and an optional note. */
 export type EvaluationCriterion =
   | (typeof ATTITUDE_CRITERIA)[number]
   | (typeof TECHNICAL_CRITERIA)[number]
@@ -90,7 +92,7 @@ export const EVALUATION_SECTIONS: readonly EvaluationSection[] = [
 /** The sum of every criterion's maximum — 100. */
 export const EVALUATION_MAX_TOTAL = criteriaTotal(EVALUATION_CRITERIA);
 
-/** One criterion as scored: a number and the note that justifies it. */
+/** One criterion as scored: a number, and the note that explains it if written. */
 export interface CriterionScore {
   score: number;
   notes: string;
@@ -98,9 +100,9 @@ export interface CriterionScore {
 
 /**
  * One criterion as a work in progress — the shape a *draft* is saved in. Any
- * mix is valid: only a score, only a note, or neither. It becomes a
- * `CriterionScore` once both halves are there, which is what makes an
- * evaluation complete.
+ * mix is valid: only a score, only a note, or neither. A criterion makes the
+ * evaluation complete once it has a score, which is the one half the form
+ * insists on.
  */
 export interface CriterionDraft {
   score?: number;
@@ -154,9 +156,11 @@ export interface EvaluationDraft {
 }
 
 /**
- * Every criterion scored with a note, both interviewer fields filled, and a
- * recommendation made — the gate for finishing an interview. Kept in step with
- * the same rule the database enforces in `complete_interview`: a draft may be
+ * Every criterion scored, both interviewer fields filled, and a
+ * recommendation made — the gate for finishing an interview. Notes are not
+ * part of the gate: a note is context the committee adds when it has some, so
+ * an evaluation with only scores can still be finished. Kept in step with the
+ * same rule the database enforces in `complete_interview`: a draft may be
  * missing anything, but finishing may not.
  */
 export function isDraftComplete(draft: EvaluationDraft): boolean {
@@ -167,11 +171,7 @@ export function isDraftComplete(draft: EvaluationDraft): boolean {
 
   return EVALUATION_CRITERIA.every((criterion) => {
     const criterionScore = draft.scores[criterion.key];
-    return (
-      criterionScore !== undefined &&
-      Number.isFinite(criterionScore.score) &&
-      (criterionScore.notes ?? '').trim().length > 0
-    );
+    return criterionScore !== undefined && Number.isFinite(criterionScore.score);
   });
 }
 
@@ -202,7 +202,7 @@ export function scoresTotal(scores: EvaluationDraftScores): number {
   }, 0);
 }
 
-/** How much of one section is done: points scored, and criteria fully finished. */
+/** How much of one section is done: points scored, and criteria scored. */
 export function sectionProgress(
   scores: EvaluationDraftScores,
   section: EvaluationSection,
@@ -211,8 +211,7 @@ export function sectionProgress(
     (progress, criterion) => {
       const criterionScore = scores[criterion.key];
       const score = Number.isFinite(criterionScore?.score) ? (criterionScore?.score as number) : 0;
-      const finished =
-        Number.isFinite(criterionScore?.score) && (criterionScore?.notes ?? '').trim().length > 0;
+      const finished = Number.isFinite(criterionScore?.score);
 
       return {
         points: progress.points + score,
@@ -226,6 +225,7 @@ export function sectionProgress(
 /**
  * What a draft still needs, in the words the form lists above its buttons —
  * the same requirements `isDraftComplete` checks, spelled out one by one.
+ * Notes never appear here: they are optional throughout.
  */
 export function missingRequirements(draft: EvaluationDraft): string[] {
   const missing: string[] = [];
@@ -238,13 +238,6 @@ export function missingRequirements(draft: EvaluationDraft): string[] {
   ).length;
   if (unscored > 0) {
     missing.push(`${unscored} ${unscored === 1 ? 'criterion' : 'criteria'} without a score`);
-  }
-
-  const notated = EVALUATION_CRITERIA.filter(
-    (criterion) => !(draft.scores[criterion.key]?.notes ?? '').trim(),
-  ).length;
-  if (notated > 0) {
-    missing.push(`${notated} ${notated === 1 ? 'note' : 'notes'} still to write`);
   }
 
   if (!draft.recommendation) missing.push('A recommendation');

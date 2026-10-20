@@ -142,7 +142,8 @@ export async function unstartInterview(interviewId: string): Promise<void> {
 /**
  * Saves the evaluation (data section + scored criteria) on an interview, as
  * often as the committee likes: a draft may hold anything, a complete save
- * must hold everything. The recommendation is stored separately from the
+ * must hold every score, both interviewer names and a recommendation. Notes
+ * are optional on every save. The recommendation is stored separately from the
  * score and can be revised at any time — including after the interview has
  * been finished, which is why a finished row stays editable.
  *
@@ -185,7 +186,7 @@ async function assertEvaluationComplete(interviewId: string): Promise<void> {
   if (!row) throw new Error('Interview not found.');
   if (row.overall_total === null || row.recommendation === null) {
     throw new Error(
-      'Complete the evaluation — every criterion with a note, plus a recommendation — before finishing this interview.',
+      'Complete the evaluation — every criterion scored, plus a recommendation — before finishing this interview.',
     );
   }
 }

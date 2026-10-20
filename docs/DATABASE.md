@@ -91,7 +91,7 @@ WAITING ⇄ IN_INTERVIEW → PASSED | REJECTED | NEEDS_ANOTHER_TRACK
                                      WAITING
 ```
 
-Any `WAITING` row can be started — skipping ahead is allowed and queue order stays as printed. An **unstart** (`IN_INTERVIEW → WAITING`) keeps the queue number and the evaluation saved so far; only the clock resets. Finishing (pass, reject, transfer) requires a **complete evaluation** — every criterion scored with a note, both interviewer fields, plus a recommendation — enforced in `complete_interview`.
+Any `WAITING` row can be started — skipping ahead is allowed and queue order stays as printed. An **unstart** (`IN_INTERVIEW → WAITING`) keeps the queue number and the evaluation saved so far; only the clock resets. Finishing (pass, reject, transfer) requires a **complete evaluation** — every criterion scored, both interviewer names, plus a recommendation — enforced in `complete_interview`. Per-criterion notes are optional since **0012**; an evaluation with only scores can be finished.
 
 A transfer sets the source row to `NEEDS_ANOTHER_TRACK` and creates a **new** `WAITING` row in the target track for the same day, linked by `transferred_from_id`.
 
@@ -99,7 +99,7 @@ Since **0009** a finished interview is not frozen: its evaluation can be saved a
 
 ## The evaluation form (src/domain/interviews/evaluation.ts)
 
-One global form for every track — 100 points in total, and every criterion needs a score _and_ a note:
+One global form for every track — 100 points in total; every criterion needs a score, and a note is optional:
 
 | Section          | Criteria                                                                                                                                  | Points      |
 | ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------- | ----------- |
@@ -109,26 +109,26 @@ One global form for every track — 100 points in total, and every criterion nee
 
 The **Data** section records the two interviewers (technical and attitude); the member's name and position are autofilled read-only. The **Final evaluation** shows the computed total and the recommendation (`ACCEPTED` / `NEEDS_TRAINING` / `REJECTED`), which is a separate judgement and never counted into the score.
 
-Saving is a **draft action** (allowed on any interview — open or finished — as often as the committee likes, with any part of the form filled in) — "Save draft" stores whatever exists so far and leaves `overall_total` null, while "Save evaluation" validates the finished form. The board also keeps an unsaved copy in the browser (`localStorage`, keyed by interview id) so a refresh, a reload, or navigating away and back never clears work in progress. Finishing is gated on completion, both in the app and in the database: a draft cannot end an interview.
+Saving is a **draft action** (allowed on any interview — open or finished — as often as the committee likes, with any part of the form filled in) — "Save draft" stores whatever exists so far and leaves `overall_total` null, while "Save evaluation" validates the finished form. Finishing is gated on completion, both in the app and in the database: a draft cannot end an interview. Every criterion needs a **score**; the per-criterion **note** is optional (0012) and is stored as typed, so a score-only evaluation still counts as complete. The board also keeps an unsaved copy in the browser (`localStorage`, keyed by interview id) so a refresh, a reload, or navigating away and back never clears work in progress.
 
 ## Queue functions (migrations/0005–0011)
 
-| Function                                                             | Callable by              | Purpose                                                                                      |
-| -------------------------------------------------------------------- | ------------------------ | -------------------------------------------------------------------------------------------- |
-| `register_member(track, name, phone, email, notes)`                  | anyone (incl. anonymous) | creates member + queued interview atomically                                                 |
-| `start_interview(id)`                                                | track board / admin      | `WAITING → IN_INTERVIEW` (any waiting row)                                                   |
-| `unstart_interview(id)`                                              | track board / admin      | back to `WAITING`, keeping queue # + evaluation                                              |
-| `save_interview_evaluation(id, evaluation, recommendation, notes?)`  | track board / admin      | stores the data section + scored criteria (partial form = draft; works on finished rows too) |
-| `complete_interview(id, outcome, target_track?, notes?)`             | track board / admin      | pass, reject, or transfer (evaluation required)                                              |
-| `change_interview_outcome(id, outcome)`                              | track board / admin      | swap a finished decision (`PASSED ⇄ REJECTED`)                                               |
-| `reopen_interview(id)`                                               | track board / admin      | back to `WAITING`; cancels an untouched transfer hand-off                                    |
-| `update_member_details(id, name, phone?, email?, position?, notes?)` | admin                    | edits the shared `members` row **and** every interview snapshot for that person (0010)       |
-| `delete_members(ids)`                                                | admin                    | removes members and their **today** queue entries; earlier days are kept                     |
-| `purge_past_members(before?)`                                        | admin                    | clears members whose interviews are all before `before` (today by default) — history kept    |
-| `get_queue_day()`                                                    | anyone                   | today's date in the chapter timezone                                                         |
-| `get_track_board(track)`                                             | track board / admin      | one track's full queue screen                                                                |
-| `get_tv_boards()`                                                    | anyone (incl. anonymous) | summaries of the tracks marked `tv_visible`                                                  |
-| `lookup_member_results(email, phone)`                                | anyone (incl. anonymous) | results page: matches **both** email + phone, returns only that member's own outcomes        |
+| Function                                                             | Callable by              | Purpose                                                                                                      |
+| -------------------------------------------------------------------- | ------------------------ | ------------------------------------------------------------------------------------------------------------ |
+| `register_member(track, name, phone, email, notes)`                  | anyone (incl. anonymous) | creates member + queued interview atomically                                                                 |
+| `start_interview(id)`                                                | track board / admin      | `WAITING → IN_INTERVIEW` (any waiting row)                                                                   |
+| `unstart_interview(id)`                                              | track board / admin      | back to `WAITING`, keeping queue # + evaluation                                                              |
+| `save_interview_evaluation(id, evaluation, recommendation, notes?)`  | track board / admin      | stores the data section + scored criteria (partial form = draft; notes optional; works on finished rows too) |
+| `complete_interview(id, outcome, target_track?, notes?)`             | track board / admin      | pass, reject, or transfer (evaluation required)                                                              |
+| `change_interview_outcome(id, outcome)`                              | track board / admin      | swap a finished decision (`PASSED ⇄ REJECTED`)                                                               |
+| `reopen_interview(id)`                                               | track board / admin      | back to `WAITING`; cancels an untouched transfer hand-off                                                    |
+| `update_member_details(id, name, phone?, email?, position?, notes?)` | admin                    | edits the shared `members` row **and** every interview snapshot for that person (0010)                       |
+| `delete_members(ids)`                                                | admin                    | removes members and their **today** queue entries; earlier days are kept                                     |
+| `purge_past_members(before?)`                                        | admin                    | clears members whose interviews are all before `before` (today by default) — history kept                    |
+| `get_queue_day()`                                                    | anyone                   | today's date in the chapter timezone                                                                         |
+| `get_track_board(track)`                                             | track board / admin      | one track's full queue screen                                                                                |
+| `get_tv_boards()`                                                    | anyone (incl. anonymous) | summaries of the tracks marked `tv_visible`                                                                  |
+| `lookup_member_results(email, phone)`                                | anyone (incl. anonymous) | results page: matches **both** email + phone, returns only that member's own outcomes                        |
 
 All run as `security definer` with their own authorization checks, and assign queue numbers under a row lock — concurrent registrations can never collide.
 

@@ -12,9 +12,10 @@ Registers (public form or admin)
         ▼
    IN_INTERVIEW
         │  committee fills the evaluation — Attitude 50, Technical
-        │  Skills 40, IEEE Knowledge 10 (every criterion scored with
-        │  a note) plus a recommendation; saving is a draft and may
-        │  be done as often as needed, even half-finished
+        │  Skills 40, IEEE Knowledge 10 (every criterion scored;
+        │  notes are optional) plus a recommendation; saving is a
+        │  draft and may be done as often as needed, even
+        │  half-finished
         │  "Unstart" sends the member back to WAITING, keeping their
         │  place in the queue and the evaluation saved so far
         │
@@ -41,7 +42,7 @@ Registers (public form or admin)
 3. **Transfers append, never replace.** The source interview keeps its record (`NEEDS_ANOTHER_TRACK`) and the new track sees a normal waiting entry marked with its origin.
 4. **Any waiting member can be started** — the board picks the row; starting sets only that row `IN_INTERVIEW` and never reorders the queue.
 5. **Unstart keeps the work.** Returning a member to `WAITING` clears only the clock — the queue number, notes, and evaluation survive.
-6. **Finishing requires a complete evaluation** — every section scored (100 points max in total) plus a recommendation. Enforced in the database, so no client can skip it. The recommendation is stored separately from the score.
+6. **Finishing requires a complete evaluation** — every criterion scored (100 points max in total), both interviewer names, plus a recommendation. Notes are optional and never hold the gate shut. Enforced in the database, so no client can skip it. The recommendation is stored separately from the score.
 7. **A finished interview stays editable.** Its evaluation can be corrected, its decision swapped (`PASSED ⇄ REJECTED`), or the interview reopened into the queue. Reopening a transfer cancels the receiving entry only while that track has not started the member yet; an incomplete edit re-locks the finish gate.
 8. **Every change is audited** — `audit_log` records who moved which interview between which states (including evaluation saves, unstarts, decision changes, and reopens).
 9. **/tv shows only what an admin opts in** — the `tv_visible` flag per track; visibility does not affect boards, logins, or registration.

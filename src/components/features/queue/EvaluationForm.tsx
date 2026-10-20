@@ -169,9 +169,10 @@ function formatClock(iso: string): string {
  * Saving never demands the whole form: "Save draft" stores whatever is filled
  * in so far (in the database and, automatically, in this browser), while "Save
  * evaluation" validates everything the finished form needs. Pass, reject and
- * transfer stay locked until the *saved* evaluation is complete — the same
+ * transfer stay locked until the *saved* evaluation is complete — every
+ * criterion scored plus both interviewer names and a recommendation, the same
  * gate the database enforces — and the checklist above the buttons names
- * whatever is still missing.
+ * whatever is still missing. Notes are optional and never hold the gate shut.
  *
  * Passing `finished` reuses the same form on an already-decided interview: the
  * copy stops talking about unlocking Pass, and saving simply corrects the
@@ -436,7 +437,7 @@ export function EvaluationForm({
             ? `Unsaved changes are kept in this browser automatically${
                 localDraftAt ? ` (last at ${formatClock(localDraftAt)})` : ''
               }.`
-            : 'A draft may be saved at any point — the criteria are only required to finish the interview.'}
+            : 'A draft may be saved at any point — the scores, the interviewer names and a recommendation are what finish the interview.'}
         </p>
       </div>
     </form>
@@ -462,7 +463,7 @@ function FormSection({
   );
 }
 
-/** One scored line: the criterion's score box and its note. */
+/** One scored line: the criterion's score box and its optional note. */
 function CriterionRow({
   criterion,
   score,
@@ -503,10 +504,9 @@ function CriterionRow({
         <TextArea
           name={notesFieldName(criterion.key)}
           rows={2}
-          required
           value={notes}
           onChange={(event) => onNotesChange(event.target.value)}
-          placeholder="Notes (required to finish)"
+          placeholder="Notes (optional)"
           aria-label={`${criterion.label} notes`}
         />
       </div>

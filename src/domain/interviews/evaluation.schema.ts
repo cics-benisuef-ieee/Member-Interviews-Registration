@@ -9,15 +9,17 @@ import {
 } from './evaluation';
 
 /**
- * One criterion of a draft: a score capped at the criterion's maximum plus
- * the note that justifies it — both optional, so a half-filled form can be
+ * One criterion of a draft: an optional score capped at the criterion's
+ * maximum plus an optional note — both optional, so a half-filled form can be
  * saved instead of being lost. What *is* provided must still be valid: an
  * empty box stays empty (rather than coercing into a silent 0), and a note
  * trimmed to nothing is treated as "not written yet".
  *
- * The completeness rule itself lives in the database (`complete_interview`)
- * and in `isDraftComplete`, so a draft can never slip past the gate that keeps
- * Pass, Reject and Transfer locked.
+ * Scores alone decide completeness (with the interviewer names and the
+ * recommendation); a note is never required. The completeness rule itself
+ * lives in the database (`complete_interview`) and in `isDraftComplete`, so a
+ * draft can never slip past the gate that keeps Pass, Reject and Transfer
+ * locked.
  */
 function criterionDraftSchema(max: number) {
   return z.object({
@@ -32,7 +34,7 @@ function criterionDraftSchema(max: number) {
         .optional(),
     ),
     notes: z
-      .string({ required_error: 'Add a short note.' })
+      .string({ invalid_type_error: 'Add a note as text.' })
       .trim()
       .max(2000, 'That note is too long.')
       .optional()
