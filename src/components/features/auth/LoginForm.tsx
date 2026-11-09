@@ -3,7 +3,6 @@
 import { loginAction, type LoginFormState } from '@/actions/auth.actions';
 import { Button } from '@/components/ui/Button';
 import { Field, FormError, Input } from '@/components/ui/Form';
-import Link from 'next/link';
 import { useActionState } from 'react';
 
 export function LoginForm({ next }: { next?: string }) {
@@ -34,13 +33,6 @@ export function LoginForm({ next }: { next?: string }) {
       <Button type="submit" disabled={pending} className="w-full" size="lg">
         {pending ? 'Signing in…' : 'Sign in'}
       </Button>
-
-      <p className="text-center text-sm text-ieee-gray">
-        New member?{' '}
-        <Link href="/register" className="font-semibold text-ieee-blue hover:underline">
-          Register for an interview
-        </Link>
-      </p>
     </form>
   );
 }
